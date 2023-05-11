@@ -1,0 +1,30 @@
+{
+  "type" : "AND",
+  "rules" : [ {
+    "type" : "NUMBER",
+    "operator" : "EQUALS",
+    "key" : "capacity",
+    "value" : 3
+  }, {
+    "type": "NOT",
+    "rule" : {
+      "type" : "SET",
+      "operator" : "IN",
+      "key" : "MARKET_SEGMENT",
+      "values" : [ "EDU", "COM" ]
+    }
+  }, {
+    "type" : "OR",
+    "rules" : [ {
+      "type" : "SET",
+      "operator" : "IN",
+      "key" : "MARKET_SEGMENT",
+      "values" : [ "EDU", "COM" ]
+    }, {
+      "type" : "NUMBER",
+      "operator" : "EQUALS",
+      "key" : "capacity",
+      "value" : 3
+    }]
+  }]
+}

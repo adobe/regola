@@ -1,0 +1,9 @@
+# IntellIJ
+.idea/
+*.iml
+
+# maven
+target/
+
+# MacOS
+.DS_Store

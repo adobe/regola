@@ -1,0 +1,6 @@
+{
+  "type" : "DATE",
+  "operator" : "LESS_THAN",
+  "key" : "foo",
+  "value" : "2021-12-03"
+}

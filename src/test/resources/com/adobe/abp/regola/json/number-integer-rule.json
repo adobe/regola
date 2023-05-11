@@ -1,0 +1,6 @@
+{
+  "type" : "NUMBER",
+  "operator" : "EQUALS",
+  "key" : "foo",
+  "value" : 7
+}

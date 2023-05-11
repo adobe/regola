@@ -1,0 +1,6 @@
+{
+  "type" : "STRING",
+  "operator" : "EQUALS",
+  "key" : "foo",
+  "value" : "bar"
+}

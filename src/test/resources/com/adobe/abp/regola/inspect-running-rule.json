@@ -1,0 +1,9 @@
+{
+  "type" : "AND",
+  "rules" : [{
+    "type" : "STRING",
+    "operator" : "EQUALS",
+    "key" : "MARKET_SEGMENT",
+    "value" : "COM"
+  }]
+}

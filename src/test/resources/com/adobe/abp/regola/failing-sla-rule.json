@@ -1,0 +1,14 @@
+{
+  "type" : "AND",
+  "rules" : [{
+    "type" : "NUMBER",
+    "operator" : "EQUALS",
+    "key" : "capacity",
+    "value" : 3
+  }, {
+    "type" : "STRING",
+    "operator" : "EQUALS",
+    "key" : "MARKET_SEGMENT",
+    "value" : "COM"
+  }]
+}

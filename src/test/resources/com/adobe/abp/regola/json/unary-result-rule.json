@@ -1,0 +1,12 @@
+{
+  "type": "Unary-type",
+  "result": "VALID",
+  "rule": {
+    "result" : "VALID",
+    "type" : "some-type",
+    "operator" : "EQUALS",
+    "key" : "some-key",
+    "expectedValue" : "some-value",
+    "actualValue": "some-value"
+  }
+}

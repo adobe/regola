@@ -1,0 +1,17 @@
+{
+  "type" : "AND",
+  "rules" : [{
+    "type" : "STRING",
+    "operator" : "EQUALS",
+    "key" : "MARKET_SEGMENT",
+    "value" : "COM"
+  }, {
+    "type": "NOT",
+    "rule" : {
+      "type" : "SET",
+      "operator" : "IN",
+      "key" : "MARKET_SEGMENT",
+      "values" : [ "EDU", "COM" ]
+    }
+  }]
+}

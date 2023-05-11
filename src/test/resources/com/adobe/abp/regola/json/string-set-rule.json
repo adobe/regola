@@ -1,0 +1,6 @@
+{
+  "type" : "SET",
+  "operator" : "IN",
+  "key" : "foo",
+  "values" : ["bar", "baz"]
+}

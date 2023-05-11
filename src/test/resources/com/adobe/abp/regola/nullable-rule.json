@@ -1,0 +1,15 @@
+{
+  "type" : "OR",
+  "rules" : [{
+    "type" : "NUMBER",
+    "operator" : "EQUALS",
+    "key" : "capacity",
+    "value" : 3
+  }, {
+    "type": "NOT",
+    "rule": {
+      "type" : "EXISTS",
+      "key" : "capacity"
+    }
+  }]
+}

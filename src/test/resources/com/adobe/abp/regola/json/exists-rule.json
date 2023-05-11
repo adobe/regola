@@ -1,0 +1,4 @@
+{
+  "type" : "EXISTS",
+  "key" : "foo"
+}
