@@ -4,6 +4,7 @@
 
 # maven
 target/
+.mvn/settings.xml
 
 # MacOS
 .DS_Store

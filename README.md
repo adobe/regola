@@ -754,41 +754,6 @@ The top-level `"result"` is the overall result of the rule.
 - If VALID, the subresults must be all VALID or MAYBE (i.e., rule did not need to be evaluated due to short-circuiting).
 - If not VALID, one or more of the subresults are: INVALID, OPERATION_NOT_SUPPORTED or FAILED.
 
-## Building and Releasing
-
-### Building
-
-To build/release, set the following shell variables:
-
-```sh
-ARTIFACTORY_USER=ldapusername
-ARTIFACTORY_API_TOKEN=<artifactory token>
-```
-
-### Pre-Merge Checks
-
-Before merging the following should be run to ensure that a release would be successful from a build, test and documentation point of view:
-
-```sh
-mvn clean install
-```
-
-### Releasing new versions
-
-To produce a release you should:
-
-- Switch to the `main` branch and ensure you have the latest HEAD revision
-- Run `mvn release:prepare --settings .mvn/settings.xml`, accepting the defaults
-- Run `mvn release:perform --settings .mvn/settings.xml`.
-
-This will:
-- Drop the `-SNAPSHOT` qualifier from the version number
-- Create a tag in git
-- Push the commit and tag to Github
-- Publish the artefacts to the `maven-abp-toolbox-release` repository
-- Increase the version number and add the SNAPSHOT qualifier
-
-
 ## Oh, by the way, what does "regola" mean?
 
 **regola** is the italian word for **rule**.
