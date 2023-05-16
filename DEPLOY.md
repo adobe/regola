@@ -1,4 +1,4 @@
-# Deploying regola to maven central
+# Deploying to maven central
 
 This guide is for maintainers of the regola project only.
 
@@ -6,8 +6,18 @@ This guide is for maintainers of the regola project only.
 
 - Have release access to sonatype for `com.adobe.abp`
 - `brew install gpg` (follow the [sonatype guide](https://central.sonatype.org/publish/requirements/gpg/))
+    - You will need to upload your public key to a keyserver with:
+```sh
+gpg --keyserver <server> --send-keys  <key_id_from: gpg --list-keys>
 
-Create a `settings.xml` file under the `.mvn` folder with the following:
+# List of keyservers to try:
+- keys.openpgp.org
+- keyserver.ubuntu.com
+- pgp.mit.edu
+```
+
+
+- Create a `settings.xml` file under the `.mvn` folder with the following:
 
 ```xml
 <settings>
@@ -44,9 +54,13 @@ mvn clean install
 
 ### Snapshot Releases
 
+To produce a snapshot release you should run:
+
 ```sh
 mvn clean deploy
 ```
+
+Upon success, you can check the [sonatype snapshot repository](https://oss.sonatype.org/content/repositories/snapshots/com/adobe/abp/regola/) to see the latest snapshot.
 
 As per [sonatype docs](https://central.sonatype.org/publish/publish-maven/#performing-a-snapshot-deployment):
 
@@ -68,6 +82,10 @@ This will:
 - Push the commit and tag to Github
 - Publish the artifacts to the maven central repository
 - Increase the version number and add the SNAPSHOT qualifier
+
+Upon success, you can check the [sonatype nexus repository](https://oss.sonatype.org/#nexus-search;quick~regola) to check all the released versions.
+
+The change will show up in the [sonatype central repository](https://central.sonatype.com/artifact/com.adobe.abp/regola) after 30 minutes or so.
 
 As per [sonatype docs](https://central.sonatype.org/publish/publish-guide/#releasing-to-central):
 
