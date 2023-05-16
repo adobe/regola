@@ -47,8 +47,8 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com:adobe/regola.git</connection>
-        <developerConnection>scm:git:https://github.com:adobe/regola.git</developerConnection>
+        <connection>scm:git:git@github.com:adobe/regola.git</connection>
+        <developerConnection>scm:git:https://github.com/adobe/regola</developerConnection>
         <url>https://github.com/adobe/regola/tree/master</url>
         <tag>HEAD</tag>
     </scm>
