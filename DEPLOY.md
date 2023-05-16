@@ -7,6 +7,33 @@ This guide is for maintainers of the regola project only.
 - Have release access to sonatype for `com.adobe.abp`
 - `brew install gpg` (follow the [sonatype guide](https://central.sonatype.org/publish/requirements/gpg/))
 
+Create a `settings.xml` file under the `.mvn` folder with the following:
+
+```xml
+<settings>
+    <servers>
+        <server>
+            <id>ossrh</id>
+            <username>your_sonatype_username</username>
+            <password>your_sonatype_password</password>
+        </server>
+    </servers>
+    <profiles>
+        <profile>
+            <id>sign</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <gpg.passphrase>your_gpg_passphrase</gpg.passphrase>
+            </properties>
+        </profile>
+    </profiles>
+</settings>
+```
+
+**Note**: never share passwords or passphrases in git.
+
 ### Pre-Merge Checks
 
 Before merging the following should be run to ensure that a release would be successful from a build, test and documentation point of view:
