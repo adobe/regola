@@ -16,7 +16,7 @@
 
     <groupId>com.adobe.abp</groupId>
     <artifactId>regola</artifactId>
-    <version>0.0.21-SNAPSHOT</version>
+    <version>0.0.21</version>
     <packaging>jar</packaging>
 
     <name>regola</name>
@@ -50,7 +50,7 @@
         <connection>scm:git:git@github.com:adobe/regola.git</connection>
         <developerConnection>scm:git:git@github.com:adobe/regola.git</developerConnection>
         <url>https://github.com/adobe/regola/tree/master</url>
-        <tag>HEAD</tag>
+        <tag>regola-0.0.21</tag>
     </scm>
 
     <distributionManagement>
