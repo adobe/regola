@@ -91,3 +91,22 @@ As per [sonatype docs](https://central.sonatype.org/publish/publish-guide/#relea
 
 > Upon release, your component will be published to Central: this typically occurs within 30 minutes, 
 > though updates to search can take up to four hours.
+
+## Troubleshooting
+
+### GPG - waiting for lock
+
+If you get the following error:
+
+```sh
+[INFO] --- gpg:3.1.0:sign (sign-artifacts) @ regola ---
+[INFO] Signing 4 files with default secret key.
+gpg: waiting for lock (held by 66728) ...
+gpg: waiting for lock (held by 66728) ...
+gpg: waiting for lock (held by 66728) ...
+gpg: waiting for lock (held by 66728) ...
+...
+```
+
+Then you will need to identify the lock file (e.g., `gnupg_spawn_keyboxd_sentinel.lock`) 
+for `66728` (or whatever PID you have been assigned) in `~/.gnupg` and delete it.
