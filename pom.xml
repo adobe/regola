@@ -73,27 +73,27 @@
         <maven.compiler.version>11</maven.compiler.version>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
-        <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
-        <maven.surfire.plugin.version>3.0.0</maven.surfire.plugin.version>
-        <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
-        <maven.javadoc.plugin.version>3.5.0</maven.javadoc.plugin.version>
-        <maven.gpg.plugin.version>3.1.0</maven.gpg.plugin.version>
-        <maven.release.plugin.version>3.0.0</maven.release.plugin.version>
-        <nexus.staging.maven.plugin.version>1.6.13</nexus.staging.maven.plugin.version>
+        <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
+        <maven.surfire.plugin.version>3.5.1</maven.surfire.plugin.version>
+        <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
+        <maven.javadoc.plugin.version>3.10.1</maven.javadoc.plugin.version>
+        <maven.gpg.plugin.version>3.2.7</maven.gpg.plugin.version>
+        <maven.release.plugin.version>3.1.1</maven.release.plugin.version>
+        <nexus.staging.maven.plugin.version>1.7.0</nexus.staging.maven.plugin.version>
 
         <!-- Dependencies versions -->
-        <commons.io.version>2.11.0</commons.io.version>
+        <commons.io.version>2.17.0</commons.io.version>
         <commons.collections4.version>4.4</commons.collections4.version>
-        <commons.lang3.version>3.12.0</commons.lang3.version>
+        <commons.lang3.version>3.17.0</commons.lang3.version>
         <commons.math3.version>3.6.1</commons.math3.version>
-        <jackson.version>2.14.2</jackson.version>
-        <caffeine.version>3.1.5</caffeine.version>
+        <jackson.version>2.18.1</jackson.version>
+        <caffeine.version>3.1.8</caffeine.version>
         <fburato.functional.utils.core.version>1.0.0</fburato.functional.utils.core.version>
 
         <!-- Testing -->
-        <junit.jupyter.version>5.9.2</junit.jupyter.version>
-        <assertj.version>3.24.2</assertj.version>
-        <mockito.version>5.2.0</mockito.version>
+        <junit.jupyter.version>5.11.3</junit.jupyter.version>
+        <assertj.version>3.26.3</assertj.version>
+        <mockito.version>5.14.2</mockito.version>
     </properties>
 
     <build>
