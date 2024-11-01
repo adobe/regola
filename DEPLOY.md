@@ -16,7 +16,7 @@ gpg --keyserver <server> --send-keys  <key_id_from: gpg --list-keys>
 - pgp.mit.edu
 ```
 
-
+- Generate an [User Access Token](https://central.sonatype.org/publish/generate-token/)
 - Create a `settings.xml` file under the `.mvn` folder with the following:
 
 ```xml
@@ -25,7 +25,7 @@ gpg --keyserver <server> --send-keys  <key_id_from: gpg --list-keys>
         <server>
             <id>ossrh</id>
             <username>your_sonatype_username</username>
-            <password>your_sonatype_password</password>
+            <password>your_sonatype_access_token</password>
         </server>
     </servers>
     <profiles>
@@ -110,3 +110,7 @@ gpg: waiting for lock (held by 66728) ...
 
 Then you will need to identify the lock file (e.g., `gnupg_spawn_keyboxd_sentinel.lock`) 
 for `66728` (or whatever PID you have been assigned) in `~/.gnupg` and delete it.
+
+### 401 Unauthorized error
+
+See the documentation [here](https://central.sonatype.org/faq/401-error/).
