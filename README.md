@@ -37,8 +37,6 @@ var rule = new StringRule()
     .setDescription("The market segment should be COM");
 ```
 
-But because of inheritance, you need to make sure that the fluent setters are called in the right order.
-
 For some rules, you could also pass some parameters directly via the constructor for conciseness:
 
 ```java
@@ -103,7 +101,7 @@ where all the rules must evaluate to VALID for it to evaluate to VALID.
 ```
 
 | A     | B                       | A && B                  |
-| ----- | ----------------------- | ----------------------- |
+|-------|-------------------------|-------------------------|
 | VALID | VALID                   | VALID                   |
 | VALID | INVALID                 | INVALID                 |
 | VALID | MAYBE                   | MAYBE                   |
@@ -127,7 +125,7 @@ where at least one rule must evaluate to VALID for it to evaluate to VALID.
 ```
 
 | A       | B       | A \|\| B |
-| ------- | ------- | -------- |
+|---------|---------|----------|
 | VALID   | any     | VALID    |
 | INVALID | INVALID | INVALID  |
 
@@ -150,7 +148,7 @@ The "Not Rule" is used to negate the result of another rule.
 ```
 
 | A                       | !A                      |
-| ----------------------- | ----------------------- |
+|-------------------------|-------------------------|
 | VALID                   | INVALID                 |
 | INVALID                 | VALID                   |
 | MAYBE                   | MAYBE                   |
@@ -173,7 +171,7 @@ The "Exists Rule" is used to check whether a fact exists or not.
 ##### Some examples
 
 | Key   | Fact                 | Result  |
-| ----- | -------------------- | ------- |
+|-------|----------------------|---------|
 | "foo" | { "foo": "bar" }     | VALID   |
 | "foo" | { "foo": null }      | INVALID |
 | "foo" | { "not_foo": "bar" } | INVALID |
@@ -258,7 +256,7 @@ Comparisons are case-sensitive.
 ##### Some examples
 
 | Rule Value | Operator           | Fact                  | Result  |
-| ---------- | ------------------ | --------------------- | ------- |
+|------------|--------------------|-----------------------|---------|
 | "bar"      | EQUALS             | "bar"                 | VALID   |
 | "bar"      | EQUALS             | "BAR"                 | INVALID |
 | "bar"      | EQUALS             | "baz"                 | INVALID |
@@ -283,7 +281,7 @@ INTERSECTS: evaluates to VALID if the fact and the rule's value have at least on
   "type": "SET",
   "operator": "IN",
   "key": "foo",
-  "value": ["bar", "baz"]
+  "values": ["bar", "baz"]
 }
 ```
 
@@ -294,7 +292,7 @@ String comparisons are case-sensitive.
 ##### Some examples
 
 | Rule Value     | Operator     | Fact           | Result  |
-| -------------- | ------------ |----------------|---------|
+|----------------|--------------|----------------|---------|
 | ["bar", "baz"] | IN           | "bar"          | VALID   |
 | ["bar", "baz"] | IN           | "waz"          | INVALID |
 | [1, 2, 3]      | IN           | 2              | VALID   |
@@ -353,7 +351,7 @@ Dates must be parsable to an `OffsetDateTime`:
 ##### Some examples
 
 | Rule Value             | Operator           | Fact                   | Result  |
-| ---------------------- | ------------------ | ---------------------- | ------- |
+|------------------------|--------------------|------------------------|---------|
 | "2021-07-07T12:30:00Z" | EQUALS             | "2021-07-07T12:30:00Z" | VALID   |
 | "2021-07-07T12:30:00Z" | GREATER_THAN       | "2022-07-07T12:30:00Z" | VALID   |
 | "2021-07-07T12:30:00Z" | GREATER_THAN       | "2020-07-07T12:30:00Z" | INVALID |
@@ -375,10 +373,10 @@ A "Null Rule" is a rule that evaluates a fact against a null value.
 
 ##### Some examples
 
-| Key   | Fact                 | Result  |
-| ----- |----------------------| ------- |
-| "foo" | null                 | VALID   |
-| "foo" | "foo"                | INVALID |
+| Key   | Fact  | Result  |
+|-------|-------|---------|
+| "foo" | null  | VALID   |
+| "foo" | "foo" | INVALID |
 
 ### Combining Rules
 
@@ -404,6 +402,54 @@ Rules can be combined using the boolean rules: AND, OR, NOT.
       "value" : 21
     }]
   }]
+}
+```
+
+#### Ignoring results
+
+Rules can be set to be ignored, so that the evaluation of AND/OR/NOT rules does not take them into account.
+
+Example of a rule marked as `ignored`:
+
+```json5
+{
+  "type" : "STRING",
+  "operator" : "EQUALS",
+  "key" : "foo",
+  "value" : "bar",
+  "ignored" : true
+}
+```
+
+This is useful when you want to run a rule but not have it affect the evaluation of the tree.
+
+For example, the following tree evaluated to `VALID` even thought one of the subrules of `AND` was `INVALID`:
+
+```json5
+{
+  "result": "VALID",
+  "type": "AND",
+  "description": "Example of a Composite Rule with subrules ignored", // Optional, can be added to any rule in the tree
+  "ignored": false,
+  "rules": [
+    {
+      "result": "INVALID",
+      "type": "STRING",
+      "ignored": true,
+      "operator": "EQUALS",
+      "key": "foo",
+      "expectedValue": "bar",
+      "actualValue": "not_bar"
+    },
+    {
+      "result": "VALID",
+      "type": "EXISTS",
+      "ignored": false,
+      "key": "foo",
+      "expectedValue": "<any>",
+      "actualValue": "not_bar"
+    }
+  ]
 }
 ```
 
@@ -460,7 +506,7 @@ Rule rule = mapper.readValue(jsonRule, Rule.class);
 ```java
 public class YourRule extends Rule {
     public YourRule() {
-        super("YOUR_TYPE"); // You should make sure this does not conflict with the type of an existing rule
+        super("YOUR_TYPE"); // You should make sure this does not conflict with the type of any existing rule
     }
 
     @Override
@@ -536,7 +582,7 @@ var fact = new Fact<>("foo", data -> "bar");
 In regola, we can also write facts that use custom **data fetchers** to retrieve additional data:
 
 ```java
-Fact<Offer> fact = new Fact<>("segment", CustomDataSources.OFFER, Offer::getSegment)
+Fact<Offer> fact = new Fact<>("segment", CustomDataSources.OFFER, Offer::getSegment);
 ```
 
 ### The FactsResolver
@@ -673,7 +719,7 @@ public class OfferDataFetcher implements DataFetcher<Offer, YourContext> {
 
 ## Actions
 
-Actions are used to define operations we want to perform when a rule is evaluated.
+Actions are used to define operations we want to perform after a rule is evaluated.
 
 ### Basic usage
 
@@ -692,7 +738,7 @@ In this particular example, this action will be executed when the rule is evalua
 
 ### Chaining
 
-Chaining actions is possible using the `andThen` method on the `TriConsumer`:
+It is possible to chain actions using the `andThen` method on the `TriConsumer`:
 
 ```java
 TriConsumer<Result, Throwable, RuleResult> actionConsumer = (result, throwable, ruleResult) -> {
@@ -700,6 +746,8 @@ TriConsumer<Result, Throwable, RuleResult> actionConsumer = (result, throwable, 
         System.out.println("Hello");
     }
 };
+
+// Chain the action to always print "World"
 actionConsumer = actionConsumer.andThen((result, throwable, ruleResult) -> System.out.println("World"));
 
 var action = new Action()
@@ -708,7 +756,7 @@ var action = new Action()
 rule.setAction(action);
 ```
 
-## Understanding the Results
+## Understanding the Results of a Rule Evaluation
 
 The following is an example of a result (pretty printed in json) returned upon evaluating a tree of rules:
 
@@ -716,10 +764,13 @@ The following is an example of a result (pretty printed in json) returned upon e
 {
   "result": "VALID",
   "type": "AND",
+  "description": "Example of a Composite Rule", // Optional, can be added to any rule in the tree
+  "ignored": false,
   "rules": [
     {
       "result": "VALID",
       "type": "STRING",
+      "ignored": false,
       "operator": "EQUALS",
       "key": "foo",
       "expectedValue": "bar",
@@ -728,17 +779,20 @@ The following is an example of a result (pretty printed in json) returned upon e
     {
       "result": "VALID",
       "type": "OR",
+      "ignored": false,
       "rules": [
         {
           "result": "VALID",
           "type": "EXISTS",
+          "ignored": false,
           "key": "waz",
-          "expectedValue": "<any>", // <any> is the special keyword matching any actual value for the EXISTS rule
+          "expectedValue": "<any>", // <any> is a special keyword matching any actual value for the EXISTS rule
           "actualValue": "wazab"
         },
         {
           "result": "MAYBE",
           "type": "NUMBER",
+          "ignored": false,
           "operator": "EQUALS",
           "key": "foobar",
           "expectedValue": 21,
