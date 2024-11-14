@@ -15,6 +15,12 @@ import com.adobe.abp.regola.actions.Action;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.ValuesRuleResult;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,13 +29,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -369,6 +368,138 @@ class StringRuleTest {
     }
 
     @Nested
+    @DisplayName("starts-with should")
+    class StartsWith {
+
+        private ValuesRuleResult.RuleResultBuilder<String> ruleResultBuilder;
+
+        @BeforeEach
+        void setup() {
+            rule.setOperator(Operator.STARTS_WITH);
+            rule.setValue("fo");
+
+            ruleResultBuilder = ValuesRuleResult.<String>builder().with(r -> {
+                r.type = RuleType.STRING.getName();
+                r.operator = Operator.STARTS_WITH;
+                r.key = RULE_KEY;
+                r.expectedValue = "fo";
+            });
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact matches")
+        void factIsValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "foo"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, "foo", "fo");
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if fact does not match")
+        void factIsNotValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "fao"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, "fao", "fo");
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact matches (same value)")
+        void factIsNotValidWithSameValue() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "fo"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, "fo", "fo");
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact matches (case sensitive)")
+        void factIsInvalidWhenCaseDiffers() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "FOO"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, "FOO", "fo");
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if fact exists and rule has a null value")
+        void factIsNotValidOnNullRuleValue() {
+            rule.setValue(null);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "some-value"));
+
+            RuleTestUtils.evaluateAndTestWithNullValue(rule, resolver, ruleResultBuilder, Result.INVALID, "some-value");
+        }
+    }
+
+    @Nested
+    @DisplayName("ends-with should")
+    class EndsWith {
+
+        private ValuesRuleResult.RuleResultBuilder<String> ruleResultBuilder;
+
+        @BeforeEach
+        void setup() {
+            rule.setOperator(Operator.ENDS_WITH);
+            rule.setValue("of");
+
+            ruleResultBuilder = ValuesRuleResult.<String>builder().with(r -> {
+                r.type = RuleType.STRING.getName();
+                r.operator = Operator.ENDS_WITH;
+                r.key = RULE_KEY;
+                r.expectedValue = "of";
+            });
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact matches")
+        void factIsValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "foof"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, "foof", "of");
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if fact does not match")
+        void factIsNotValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "foaf"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, "foaf", "of");
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact matches (same value)")
+        void factIsNotValidWithSameValue() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "of"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, "of", "of");
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact matches (case sensitive)")
+        void factIsInvalidWhenCaseDiffers() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "FOOF"));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, "FOOF", "of");
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if fact exists and rule has a null value")
+        void factIsNotValidOnNullRuleValue() {
+            rule.setValue(null);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "some-value"));
+
+            RuleTestUtils.evaluateAndTestWithNullValue(rule, resolver, ruleResultBuilder, Result.INVALID, "some-value");
+        }
+    }
+
+    @Nested
     @DisplayName("contains should")
     class Contains {
 
@@ -460,7 +591,7 @@ class StringRuleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "STARTS_WITH", "ENDS_WITH"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported")
         void factIsNotValidOnEmptyFact(Operator operator) {
@@ -474,7 +605,7 @@ class StringRuleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "STARTS_WITH", "ENDS_WITH"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported even if both fact and rule value are null")
         void factAndRuleValueAreNull(Operator operator) {
@@ -520,7 +651,7 @@ class StringRuleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "STARTS_WITH", "ENDS_WITH"})
         @DisplayName("evaluate as invalid if fact is null")
         void factIsNotValidOnNullFact(Operator operator) {
             setup(operator);
@@ -533,7 +664,7 @@ class StringRuleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "STARTS_WITH", "ENDS_WITH"})
         @DisplayName("evaluate as invalid if rule has an empty value and fact is null")
         void emptyValueButFactIsNull(Operator operator) {
             setup(operator);
@@ -547,7 +678,7 @@ class StringRuleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "STARTS_WITH", "ENDS_WITH"})
         @DisplayName("evaluate as invalid if fact and value are both null")
         void nullFactIsInvalidIfRuleValueIsNull(Operator operator) {
             setup(operator);
@@ -617,7 +748,7 @@ class StringRuleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "STARTS_WITH", "ENDS_WITH"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported")
         void factIsNotValidOnEmptyFact(Operator operator) {

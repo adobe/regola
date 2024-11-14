@@ -19,7 +19,9 @@ public enum Operator {
     LESS_THAN_EQUAL,
     IN,
     CONTAINS,
-    INTERSECTS
+    INTERSECTS,
+    STARTS_WITH,
+    ENDS_WITH
 
     // Operators not supported yet
     // BETWEEN,

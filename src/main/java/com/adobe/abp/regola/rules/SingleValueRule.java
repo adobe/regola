@@ -27,13 +27,6 @@ import java.util.stream.Collectors;
 
 public abstract class SingleValueRule<T> extends OperatorBasedRule {
 
-    protected final Set<Operator> SINGLE_FACT_OPERATORS = Set.of(Operator.EQUALS,
-            Operator.GREATER_THAN,
-            Operator.GREATER_THAN_EQUAL,
-            Operator.LESS_THAN,
-            Operator.LESS_THAN_EQUAL);
-    protected final Set<Operator> SET_FACT_OPERATORS = Set.of(Operator.CONTAINS);
-
     private T value;
     private final Executor executor;
     private final Set<Class<?>> factTypes;
@@ -81,7 +74,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
 
             @Override
             public CompletableFuture<Result> status() {
-                if (SINGLE_FACT_OPERATORS.contains(getOperator())) {
+                if (getSingleFactOperators().contains(getOperator())) {
                     return resolveFact(factsResolver, getKey())
                             .thenApply(fact -> {
                                 result = check(fact);
@@ -91,7 +84,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
-                } else if (SET_FACT_OPERATORS.contains(getOperator())) {
+                } else if (getSetFactOperators().contains(getOperator())) {
                     return resolveSetFact(factsResolver, getKey())
                             .thenApply(factsSet -> {
                                 result = check(factsSet);
@@ -118,6 +111,20 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                 return result;
             }
         };
+    }
+
+    protected Set<Operator> getSingleFactOperators() {
+        return Set.of(
+                Operator.EQUALS,
+                Operator.GREATER_THAN,
+                Operator.GREATER_THAN_EQUAL,
+                Operator.LESS_THAN,
+                Operator.LESS_THAN_EQUAL
+        );
+    }
+
+    protected Set<Operator> getSetFactOperators() {
+        return Set.of(Operator.CONTAINS);
     }
 
     /**
