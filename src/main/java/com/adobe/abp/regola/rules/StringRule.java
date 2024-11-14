@@ -53,8 +53,25 @@ public class StringRule extends SingleValueRule<String> {
                 return checkFact(fact, (f, value) -> StringUtils.compare(f, value) < 0);
             case LESS_THAN_EQUAL:
                 return checkFact(fact, (f, value) -> StringUtils.compare(f, value) <= 0);
+            case STARTS_WITH:
+                return checkFact(fact, StringUtils::startsWith);
+            case ENDS_WITH:
+                return checkFact(fact, StringUtils::endsWith);
             default:
                 return Result.OPERATION_NOT_SUPPORTED;
         }
+    }
+
+    @Override
+    protected Set<Operator> getSingleFactOperators() {
+        return Set.of(
+                Operator.EQUALS,
+                Operator.GREATER_THAN,
+                Operator.GREATER_THAN_EQUAL,
+                Operator.LESS_THAN,
+                Operator.LESS_THAN_EQUAL,
+                Operator.STARTS_WITH,
+                Operator.ENDS_WITH
+        );
     }
 }

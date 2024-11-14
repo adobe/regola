@@ -263,6 +263,12 @@ Comparisons are case-sensitive.
 | "bar"      | GREATER_THAN       | "car"                 | VALID   |
 | "bar"      | GREATER_THAN_EQUAL | "bar"                 | VALID   |
 | "bar"      | GREATER_THAN       | "are"                 | INVALID |
+| "bar"      | STARTS_WITH        | "bar"                 | VALID   |
+| "bar"      | STARTS_WITH        | "barfoo"              | VALID   |
+| "bar"      | STARTS_WITH        | "foobar"              | INVALID |
+| "bar"      | ENDS_WITH          | "bar"                 | VALID   |
+| "bar"      | ENDS_WITH          | "foobar"              | VALID   |
+| "bar"      | ENDS_WITH          | "barfoo"              | INVALID |
 | "bar"      | CONTAINS           | ["are", "bar", "baz"] | VALID   |
 | "bar"      | CONTAINS           | ["are", "baz"]        | INVALID |
 | any string | supported operator | null                  | INVALID |
