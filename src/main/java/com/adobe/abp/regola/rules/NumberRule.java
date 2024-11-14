@@ -47,6 +47,10 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
 
     @Override
     Result check(V fact) {
+        if (fact == null || getValue() == null) {
+            return Result.INVALID;
+        }
+
         switch (getOperator()) {
             case EQUALS:
                 return checkFact(fact, (f, value) -> comparator.compare(f, getValue()) == 0);
@@ -58,9 +62,23 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
                 return checkFact(fact, (f, value) -> comparator.compare(f, getValue()) < 0);
             case LESS_THAN_EQUAL:
                 return checkFact(fact, (f, value) -> comparator.compare(f, getValue()) <= 0);
+            case MODULO:
+                return checkFact(fact, (f, value) -> f.doubleValue() % getValue().doubleValue() == 0);
             default:
                 return Result.OPERATION_NOT_SUPPORTED;
         }
+    }
+
+    @Override
+    protected Set<Operator> getSingleFactOperators() {
+        return Set.of(
+                Operator.EQUALS,
+                Operator.GREATER_THAN,
+                Operator.GREATER_THAN_EQUAL,
+                Operator.LESS_THAN,
+                Operator.LESS_THAN_EQUAL,
+                Operator.MODULO
+        );
     }
 
     static class NumberComparator<T extends Number & Comparable<T>> implements Comparator<T> {
