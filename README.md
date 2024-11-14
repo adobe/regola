@@ -214,7 +214,7 @@ The number can be an integer or a double.
 }
 ```
 
-**Supported operators**: EQUALS, GREATER_THAN, GREATER_THAN_EQUAL, LESS_THAN, LESS_THAN_EQUAL, CONTAINS
+**Supported operators**: EQUALS, GREATER_THAN, GREATER_THAN_EQUAL, LESS_THAN, LESS_THAN_EQUAL, CONTAINS, MODULO
 
 Integer-Double comparisons between the rule's value and the data provided by the fact work for all operators except `CONTAINS`.
 
@@ -233,6 +233,8 @@ Integer-Double comparisons between the rule's value and the data provided by the
 | 7          | CONTAINS           | [ 6, 8]      | INVALID |
 | 7          | CONTAINS           | [ 6, 7.0, 8] | INVALID |
 | 7.0        | CONTAINS           | [ 6, 7.0, 8] | VALID   |
+| 7.0        | MODULO             | 7.0          | VALID   |
+| 7.0        | MODULO             | 8.0          | INVALID |
 | any number | supported operator | null         | INVALID |
 | null       | supported operator | any number   | INVALID |
 
