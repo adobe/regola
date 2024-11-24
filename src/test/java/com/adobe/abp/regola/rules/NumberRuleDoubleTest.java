@@ -472,26 +472,26 @@ class NumberRuleDoubleTest {
     }
 
     @Nested
-    @DisplayName("modulo should")
-    class Modulo {
+    @DisplayName("divisible-by should")
+    class DivisibleBy {
 
         private ValuesRuleResult.RuleResultBuilder<Double> ruleResultBuilder;
         private ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilderMixedTypes;
 
         @BeforeEach
         void setup() {
-            rule.setOperator(Operator.MODULO);
+            rule.setOperator(Operator.DIVISIBLE_BY);
             rule.setValue(3.);
 
             ruleResultBuilder = ValuesRuleResult.<Double>builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
-                r.operator = Operator.MODULO;
+                r.operator = Operator.DIVISIBLE_BY;
                 r.key = RULE_KEY;
                 r.expectedValue = 3.;
             });
             ruleResultBuilderMixedTypes = ValuesRuleResult.builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
-                r.operator = Operator.MODULO;
+                r.operator = Operator.DIVISIBLE_BY;
                 r.key = RULE_KEY;
                 r.expectedValue = 3.;
             });
@@ -560,6 +560,53 @@ class NumberRuleDoubleTest {
 
             RuleTestUtils.evaluateAndTestWithAnyTypeValue(rule, resolver, ruleResultBuilderMixedTypes, Result.INVALID, 7, 3.0);
         }
+
+        @Test
+        @DisplayName("evaluate as valid if (negative) fact matches")
+        void negativeFactIsValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> -6.0));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -6.0, 3.0);
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if (negative) fact does not match")
+        void negativeFactIsNotValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> -7.0));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, -7.0, 3.0);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact is zero and value is non-zero")
+        void zeroFactIsValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 0.0));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, 0.0, 3.0);
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if value is zero (division by zero)")
+        void valueIsZeroShouldBeInvalid() {
+            rule.setValue(0.0);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 6.0));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, 0.0);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if (negative integer) fact matches")
+        void negativeIntegerFactIsValid() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> -6));
+
+            RuleTestUtils.evaluateAndTestWithAnyTypeValue(rule, resolver, ruleResultBuilderMixedTypes, Result.VALID, -6, 3.0);
+        }
+
     }
 
     @Nested
@@ -650,7 +697,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "MODULO"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as invalid")
         void factIsNotValidOnEmptyFact(Operator operator) {
@@ -664,7 +711,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "MODULO"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported even if both fact and rule value are null")
         void factAndRuleValueAreNull(Operator operator) {
@@ -698,7 +745,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "MODULO"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"})
         @DisplayName("evaluate as invalid if fact is null")
         void factIsNotValidOnNullFact(Operator operator) {
             setup(operator);
@@ -711,7 +758,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "MODULO"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"})
         @DisplayName("evaluate as invalid if fact and value are both null")
         void nullFactIsInvalidIfRuleValueIsNull(Operator operator) {
             setup(operator);

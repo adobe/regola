@@ -57,7 +57,7 @@ class GenericNumberRuleTest {
 
     @ParameterizedTest
     @EnumSource(value = Operator.class,
-            names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "MODULO"},
+            names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
             mode = EnumSource.Mode.EXCLUDE)
     @DisplayName("evaluate as not supported")
     void factIsNotValidOnEmptyFact(Operator operator) {

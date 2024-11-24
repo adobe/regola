@@ -22,7 +22,7 @@ public enum Operator {
     INTERSECTS,
     STARTS_WITH,
     ENDS_WITH,
-    MODULO
+    DIVISIBLE_BY
 
     // Operators not supported yet
     // BETWEEN,

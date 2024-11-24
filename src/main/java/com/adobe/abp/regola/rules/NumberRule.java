@@ -62,8 +62,13 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
                 return checkFact(fact, (f, value) -> comparator.compare(f, getValue()) < 0);
             case LESS_THAN_EQUAL:
                 return checkFact(fact, (f, value) -> comparator.compare(f, getValue()) <= 0);
-            case MODULO:
-                return checkFact(fact, (f, value) -> f.doubleValue() % getValue().doubleValue() == 0);
+            case DIVISIBLE_BY:
+                if (!(fact instanceof Integer || fact instanceof Long) ||
+                        !(getValue() instanceof Integer || getValue() instanceof Long)) {
+                    return Result.OPERATION_NOT_SUPPORTED;
+                }
+                return checkFact(fact, (f, value) -> f.longValue() % getValue().longValue() == 0);
+
             default:
                 return Result.OPERATION_NOT_SUPPORTED;
         }
@@ -77,7 +82,7 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
                 Operator.GREATER_THAN_EQUAL,
                 Operator.LESS_THAN,
                 Operator.LESS_THAN_EQUAL,
-                Operator.MODULO
+                Operator.DIVISIBLE_BY
         );
     }
 
