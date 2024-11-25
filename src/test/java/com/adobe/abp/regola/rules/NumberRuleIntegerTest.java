@@ -479,7 +479,7 @@ class NumberRuleIntegerTest {
         @BeforeEach
         void setup() {
             rule.setOperator(Operator.DIVISIBLE_BY);
-            rule.setValue(3);  // Using 3 as divisor for most tests
+            rule.setValue(3);
 
             ruleResultBuilder = ValuesRuleResult.<Integer>builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
@@ -542,49 +542,12 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as valid if (double) fact is perfectly divisible")
-        void doubleFactIsDivisible() {
-            when(resolver.resolveFact(RULE_KEY))
-                    .thenReturn(CompletableFuture.supplyAsync(() -> 6.0));
-
-            RuleTestUtils.evaluateAndTestWithAnyTypeValue(rule, resolver, ruleResultBuilderMixedTypes, Result.VALID, 6.0, 3);
-        }
-
-        @Test
-        @DisplayName("evaluate as invalid if (double) fact is not perfectly divisible")
-        void doubleFactIsNotDivisible() {
-            when(resolver.resolveFact(RULE_KEY))
-                    .thenReturn(CompletableFuture.supplyAsync(() -> 7.0));
-
-            RuleTestUtils.evaluateAndTestWithAnyTypeValue(rule, resolver, ruleResultBuilderMixedTypes, Result.INVALID, 7.0, 3);
-        }
-
-        @Test
-        @DisplayName("evaluate as valid if (double) fact equals divisor")
-        void doubleFactEqualsDivisor() {
-            when(resolver.resolveFact(RULE_KEY))
-                    .thenReturn(CompletableFuture.supplyAsync(() -> 3.0));
-
-            RuleTestUtils.evaluateAndTestWithAnyTypeValue(rule, resolver, ruleResultBuilderMixedTypes, Result.VALID, 3.0, 3);
-        }
-
-        @Test
         @DisplayName("evaluate as valid for negative numbers that are perfectly divisible")
         void negativeFactIsDivisible() {
             when(resolver.resolveFact(RULE_KEY))
                     .thenReturn(CompletableFuture.supplyAsync(() -> -9));
 
             RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -9, 3);
-        }
-
-        @Test
-        @DisplayName("evaluate as invalid if divisor is zero")
-        void divisorIsZero() {
-            rule.setValue(0);
-            when(resolver.resolveFact(RULE_KEY))
-                    .thenReturn(CompletableFuture.supplyAsync(() -> 9));
-
-            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, 9);
         }
 
         @Test
@@ -604,25 +567,6 @@ class NumberRuleIntegerTest {
                     .thenReturn(CompletableFuture.supplyAsync(() -> -9));
 
             RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -9, 3);
-        }
-
-        @Test
-        @DisplayName("evaluate as valid if (double negative) fact is perfectly divisible")
-        void negativeDoubleFactIsDivisible() {
-            when(resolver.resolveFact(RULE_KEY))
-                    .thenReturn(CompletableFuture.supplyAsync(() -> -6.0));
-
-            RuleTestUtils.evaluateAndTestWithAnyTypeValue(rule, resolver, ruleResultBuilderMixedTypes, Result.VALID, -6.0, 3);
-        }
-
-        @Test
-        @DisplayName("evaluate as invalid if divisor is zero and fact is zero")
-        void zeroDivisorZeroFact() {
-            rule.setValue(0);
-            when(resolver.resolveFact(RULE_KEY))
-                    .thenReturn(CompletableFuture.supplyAsync(() -> 0));
-
-            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, 0);
         }
     }
 

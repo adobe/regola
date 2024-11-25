@@ -47,10 +47,6 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
 
     @Override
     Result check(V fact) {
-        if (fact == null || getValue() == null) {
-            return Result.INVALID;
-        }
-
         switch (getOperator()) {
             case EQUALS:
                 return checkFact(fact, (f, value) -> comparator.compare(f, getValue()) == 0);
@@ -65,7 +61,7 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
             case DIVISIBLE_BY:
                 if (!(fact instanceof Integer || fact instanceof Long) ||
                         !(getValue() instanceof Integer || getValue() instanceof Long)) {
-                    return Result.OPERATION_NOT_SUPPORTED;
+                    return Result.INVALID;
                 }
                 return checkFact(fact, (f, value) -> f.longValue() % getValue().longValue() == 0);
 
