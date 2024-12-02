@@ -103,7 +103,7 @@ public class RegolaIT {
         assertThat(result.getResult()).isEqualTo(Result.VALID);
 
         // Printing results
-        System.out.println("Evaluated in (ms): " + watch.getTime());
+        System.out.println("Evaluated in (ms): " + watch.getDuration().toMillis());
         System.out.println(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result));
     }
 
