@@ -7,42 +7,25 @@ This guide is for maintainers of the regola project only.
 - Have release access to sonatype for `com.adobe.abp`
 - `brew install gpg` (follow the [sonatype guide](https://central.sonatype.org/publish/requirements/gpg/))
     - You will need to upload your public key to a keyserver with:
-```sh
-gpg --keyserver <server> --send-keys  <key_id_from: gpg --list-keys>
+  ```sh
+  gpg --keyserver <server> --send-keys  <key_id_from: gpg --list-keys>
+  
+  # Run the command above for each of the following servers (some may not respond):
+  - keys.openpgp.org
+  - keyserver.ubuntu.com
+  - pgp.mit.edu
+  ```
 
-# List of keyservers to try:
-- keys.openpgp.org
-- keyserver.ubuntu.com
-- pgp.mit.edu
-```
+  - Example: `gpg --keyserver keyserver.ubuntu.com --send-keys 9ADC71851C6B40511143070F3912D719680E00000`
+- Generate a [User Access Token](https://central.sonatype.org/publish/generate-token/)
+- Store your sonatype username and password as environment variables:
+  ```sh
+  export SONATYPE_USERNAME=<your_sonatype_username>
+  export SONATYPE_PASSWORD=<your_sonatype_password>
+  ```
 
-- Generate an [User Access Token](https://central.sonatype.org/publish/generate-token/)
-- Create a `settings.xml` file under the `.mvn` folder with the following:
-
-```xml
-<settings>
-    <servers>
-        <server>
-            <id>ossrh</id>
-            <username>your_sonatype_username</username>
-            <password>your_sonatype_access_token</password>
-        </server>
-    </servers>
-    <profiles>
-        <profile>
-            <id>sign</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <properties>
-                <gpg.passphrase>your_gpg_passphrase</gpg.passphrase>
-            </properties>
-        </profile>
-    </profiles>
-</settings>
-```
-
-**Note**: never share passwords or passphrases in git.
+> [!IMPORTANT]
+> Remember to never share passwords or passphrases in git!
 
 ### Pre-Merge Checks
 
@@ -79,7 +62,7 @@ To produce a release you should:
 This will:
 - Drop the `-SNAPSHOT` qualifier from the version number
 - Create a tag in git
-- Push the commit and tag to Github
+- Push the commit and tag to GitHub
 - Publish the artifacts to the maven central repository
 - Increase the version number and add the SNAPSHOT qualifier
 
