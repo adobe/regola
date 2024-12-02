@@ -71,7 +71,7 @@ public class RegolaRegressionIT {
         }
 
         // Make sure we are sub-second.
-        final var end = watch.getTime();
+        final var end = watch.getDuration().toMillis();
         System.out.printf("Evaluated 1_000 rules in %d ms - Average time to evaluate one rule %.3f ms\n", end, end/1_000.0);
         assertThat(end).isLessThan(1_000);
     }
@@ -103,7 +103,7 @@ public class RegolaRegressionIT {
         }
 
         // Make sure we are sub-second.
-        final var end = watch.getTime();
+        final var end = watch.getDuration().toMillis();
         System.out.printf("Evaluated 10_000 rules in %d ms - Average time to evaluate one rule %.3f ms\n", end, end/10_000.0);
         assertThat(end).isLessThan(1_000);
     }
