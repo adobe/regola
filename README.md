@@ -220,23 +220,23 @@ Integer-Double comparisons between the rule's value and the data provided by the
 
 ##### Some examples
 
-| Rule Value | Operator           | Fact         | Result  |
-|------------|--------------------|--------------|---------|
-| 7          | EQUALS             | 7            | VALID   |
-| 7          | GREATER_THAN       | 7            | INVALID |
-| 7          | GREATER_THAN       | 8            | VALID   |
-| 7          | GREATER_THAN_EQUAL | 7            | VALID   |
-| 7          | GREATER_THAN_EQUAL | 7.5          | VALID   |
-| 7.4        | GREATER_THAN       | 7.5          | VALID   |
-| 7.5        | GREATER_THAN       | 7.5          | INVALID |
-| 7          | CONTAINS           | [ 6, 7, 8]   | VALID   |
-| 7          | CONTAINS           | [ 6, 8]      | INVALID |
-| 7          | CONTAINS           | [ 6, 7.0, 8] | INVALID |
-| 7.0        | CONTAINS           | [ 6, 7.0, 8] | VALID   |
-| 7.0        | DIVISIBLE_BY       | 7.0          | VALID   |
-| 7.0        | DIVISIBLE_BY       | 8.0          | INVALID |
-| any number | supported operator | null         | INVALID |
-| null       | supported operator | any number   | INVALID |
+| Rule Value | Operator           | Fact     | Result  |
+|--------|--------------------|----------|---------|
+| 7      | EQUALS             | 7        | VALID   |
+| 7      | GREATER_THAN       | 7        | INVALID |
+| 7      | GREATER_THAN       | 8        | VALID   |
+| 7      | GREATER_THAN_EQUAL | 7        | VALID   |
+| 7      | GREATER_THAN_EQUAL | 7.5      | VALID   |
+| 7.4    | GREATER_THAN       | 7.5      | VALID   |
+| 7.5    | GREATER_THAN       | 7.5      | INVALID |
+| 7      | CONTAINS           | [ 6, 7, 8] | VALID   |
+| 7      | CONTAINS           | [ 6, 8]  | INVALID |
+| 7      | CONTAINS           | [ 6, 7.0, 8] | INVALID |
+| 7.0    | CONTAINS           | [ 6, 7.0, 8] | VALID   |
+| 7      | DIVISIBLE_BY       | 7        | VALID   |
+| 7      | DIVISIBLE_BY       | 8        | INVALID |
+| any number | supported operator | null     | INVALID |
+| null   | supported operator | any number | INVALID |
 
 When using the CONTAINS operator, the Fact must be a `Set` of numbers.
 

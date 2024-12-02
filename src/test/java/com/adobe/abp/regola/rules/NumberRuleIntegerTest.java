@@ -474,7 +474,6 @@ class NumberRuleIntegerTest {
     class DivisibleBy {
 
         private ValuesRuleResult.RuleResultBuilder<Integer> ruleResultBuilder;
-        private ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilderMixedTypes;
 
         @BeforeEach
         void setup() {
@@ -482,12 +481,6 @@ class NumberRuleIntegerTest {
             rule.setValue(3);
 
             ruleResultBuilder = ValuesRuleResult.<Integer>builder().with(r -> {
-                r.type = RuleType.NUMBER.getName();
-                r.operator = Operator.DIVISIBLE_BY;
-                r.key = RULE_KEY;
-                r.expectedValue = 3;
-            });
-            ruleResultBuilderMixedTypes = ValuesRuleResult.builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
                 r.operator = Operator.DIVISIBLE_BY;
                 r.key = RULE_KEY;
