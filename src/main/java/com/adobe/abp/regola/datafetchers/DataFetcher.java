@@ -15,11 +15,12 @@ import com.adobe.abp.regola.datafetchers.cache.CaffeineCache;
 import com.adobe.abp.regola.datafetchers.cache.DataCache;
 import com.adobe.abp.regola.datafetchers.cache.DataCacheConfiguration;
 import com.adobe.abp.regola.utils.futures.FutureUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 /**
  * Class defining how data is fetched from a given data source, as identified by {@link com.adobe.abp.regola.facts.DataSource}
@@ -103,7 +104,7 @@ public abstract class DataFetcher<D, C extends Context> {
      * @return the request key
      */
     public String calculateRequestKey(C context) {
-        return String.format("%s-%s", RandomStringUtils.randomAlphabetic(16), Objects.hash(context));
+        return String.format("%s-%s", RandomStringUtils.secure().nextAlphabetic(16), Objects.hash(context));
     }
 
     /**
