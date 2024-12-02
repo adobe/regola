@@ -230,7 +230,7 @@ public class FuzzyTestCaseGenerator {
     }
 
     public String getRandomLetter(int length) {
-        return RandomStringUtils.randomAlphabetic(length);
+        return RandomStringUtils.secure().nextAlphabetic(length);
     }
 
     public OffsetDateTime getRandomDate() {
