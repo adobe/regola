@@ -489,7 +489,7 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as valid if fact is perfectly divisible")
+        @DisplayName("evaluate as valid if fact is divisible by rule value")
         void factIsDivisible() {
             when(resolver.resolveFact(RULE_KEY))
                     .thenReturn(CompletableFuture.supplyAsync(() -> 9));
@@ -498,7 +498,7 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as invalid if fact is not perfectly divisible")
+        @DisplayName("evaluate as invalid if fact is not divisible by rule value")
         void factIsNotDivisible() {
             when(resolver.resolveFact(RULE_KEY))
                     .thenReturn(CompletableFuture.supplyAsync(() -> 10));
@@ -507,7 +507,7 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as valid if fact equals zero and divisor")
+        @DisplayName("evaluate as valid if fact is zero")
         void factEqualsZero() {
             when(resolver.resolveFact(RULE_KEY))
                     .thenReturn(CompletableFuture.supplyAsync(() -> 0));
@@ -535,7 +535,7 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as valid for negative numbers that are perfectly divisible")
+        @DisplayName("evaluate as valid for negative numbers that are divisible")
         void negativeFactIsDivisible() {
             when(resolver.resolveFact(RULE_KEY))
                     .thenReturn(CompletableFuture.supplyAsync(() -> -9));
@@ -544,7 +544,7 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as valid if (negative) divisor and fact are perfectly divisible")
+        @DisplayName("evaluate as valid if (negative) divisor and fact are divisible")
         void negativeDivisorFactIsDivisible() {
             rule.setValue(-3);
             when(resolver.resolveFact(RULE_KEY))
@@ -554,7 +554,7 @@ class NumberRuleIntegerTest {
         }
 
         @Test
-        @DisplayName("evaluate as valid if (negative) fact is perfectly divisible by positive divisor")
+        @DisplayName("evaluate as valid if (negative) fact is divisible by positive divisor")
         void negativeFactPositiveDivisorIsDivisible() {
             when(resolver.resolveFact(RULE_KEY))
                     .thenReturn(CompletableFuture.supplyAsync(() -> -9));
@@ -663,7 +663,7 @@ class NumberRuleIntegerTest {
                 names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported")
-        void factIsNotValidOnEmptyFact(Operator operator) {
+        void operationIsInvalid(Operator operator) {
             setup(operator);
 
             when(resolver.resolveFact(RULE_KEY))

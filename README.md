@@ -237,6 +237,8 @@ The `DIVISIBLE_BY` operator is valid only for integer values since divisibility 
 | 7.0        | CONTAINS           | [ 6, 7.0, 8] | VALID   |
 | 7          | DIVISIBLE_BY       | 7            | VALID   |
 | 7          | DIVISIBLE_BY       | 8            | INVALID |
+| 0          | DIVISIBLE_BY       | 8            | FAILED  |
+| 7          | DIVISIBLE_BY       | 0            | VALID   |
 | any number | supported operator | null         | INVALID |
 | null       | supported operator | any number   | INVALID |
 
