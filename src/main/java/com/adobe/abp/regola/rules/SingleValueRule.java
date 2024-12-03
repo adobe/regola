@@ -174,6 +174,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                 .orElse(Result.INVALID);
     }
 
+    @SuppressWarnings("unchecked")
     private CompletableFuture<T> resolveFact(FactsResolver factsResolver, String key) {
         return factsResolver.resolveFact(key)
                 .thenApply(f -> {
@@ -192,6 +193,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                 );
     }
 
+    @SuppressWarnings("unchecked")
     private CompletableFuture<Set<T>> resolveSetFact(FactsResolver factsResolver, String key) {
         return factsResolver.resolveFact(key)
                 .thenApply(f -> {

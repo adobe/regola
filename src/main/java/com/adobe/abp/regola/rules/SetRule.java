@@ -115,6 +115,7 @@ public class SetRule<T> extends OperatorBasedRule {
                                 .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
             }
 
+            @SuppressWarnings("unchecked")
             private Result handleSuccess(Function<T, Result> checkFunction, T fact) {
                 result = checkFunction.apply(fact);
                 if (fact instanceof Collection) {
@@ -163,12 +164,14 @@ public class SetRule<T> extends OperatorBasedRule {
                 .orElse(Result.INVALID);
     }
 
+    @SuppressWarnings("unchecked")
     private CompletableFuture<T> resolveFact(FactsResolver factsResolver, String key) {
         return factsResolver.resolveFact(key)
                 .thenApply(f -> {
                             if (f == null) {
                                 return null;
                             }
+
                             try {
                                 return (T) f;
                             } catch (ClassCastException e) {

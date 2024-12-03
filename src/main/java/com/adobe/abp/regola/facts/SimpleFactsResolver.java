@@ -43,10 +43,10 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
         this(null, Map.of());
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <D, F> void addFact(Fact<D, F> fact) {
         dataSourcesMap.put(fact.getKey(), fact.getDataSource());
-        //noinspection unchecked
         factFetchers.put(fact.getKey(), (Function<Object, Object>) fact.getFactFetcher());
     }
 
