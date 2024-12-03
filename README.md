@@ -1,5 +1,7 @@
 # regola
 
+[![Maven Central](https://img.shields.io/badge/Maven%20Central-latest-blue)](https://central.sonatype.com/artifact/com.adobe.abp/regola)
+
 **regola** is a rule evaluator written in Java.
 
 
