@@ -218,6 +218,8 @@ The number can be an integer or a double.
 
 Integer-Double comparisons between the rule's value and the data provided by the fact work for all operators except `CONTAINS`.
 
+The `DIVISIBLE_BY` operator is valid only for integer values since divisibility is not well-defined for floating-point numbers.
+
 ##### Some examples
 
 | Rule Value | Operator           | Fact         | Result  |
