@@ -25,6 +25,8 @@ import java.io.IOException;
 
 public class RuleResultDeserializer extends StdDeserializer<RuleResult> {
 
+    private static final long serialVersionUID = -4156695581016185307L;
+
     RuleResultDeserializer() {
         super(RuleResult.class);
     }

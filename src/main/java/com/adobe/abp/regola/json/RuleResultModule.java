@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public class RuleResultModule extends SimpleModule {
 
+    private static final long serialVersionUID = -8895061058178793722L;
+
     public RuleResultModule() {
         super("RuleResultModule");
         addDeserializer(RuleResult.class, new RuleResultDeserializer());

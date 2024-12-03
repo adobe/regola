@@ -22,8 +22,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-@SuppressWarnings("rawtypes")
 public class RuleDeserializer extends StdDeserializer<Rule> {
+    private static final long serialVersionUID = -5996525917304371916L;
+
     private final Map<String, Class<? extends Rule>> registry = new HashMap<>();
 
     RuleDeserializer() {

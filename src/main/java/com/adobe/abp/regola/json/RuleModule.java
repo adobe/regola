@@ -26,6 +26,8 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public class RuleModule extends SimpleModule {
 
+    private static final long serialVersionUID = -3818731519375102272L;
+
     private final RuleDeserializer deserializers = new RuleDeserializer()
             .registerRule("AND", AndRule.class)
             .registerRule("OR", OrRule.class)
