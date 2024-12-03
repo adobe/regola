@@ -20,13 +20,20 @@ import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+@ExtendWith(MockitoExtension.class)
 class CaffeineCacheTest {
+
+    @Mock
+    Predicate<String> testPredicate;
 
     @Test
     @DisplayName("should supply cache value when getting element for the first time")
@@ -43,7 +50,6 @@ class CaffeineCacheTest {
     @Test
     @DisplayName("should get from value cache once stored already")
     void getFromCacheOnceStored() {
-        Predicate<String> testPredicate = mock(Predicate.class);
         CaffeineCache<Object> cache = new CaffeineCache<>(new DataCacheConfiguration());
         verifyNoInteractions(testPredicate);
 

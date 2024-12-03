@@ -21,6 +21,9 @@ import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("Testing the SimpleFactsResolver")
 class SimpleFactsResolverTest {
     
@@ -107,6 +111,9 @@ class SimpleFactsResolverTest {
     @Nested
     @DisplayName("with facts with associated data fetcher")
     class DataFetchingTests {
+        @Mock
+        DataFetcher<MockData, Context> dataFetcher;
+
         private final Context context = mock(Context.class);
 
         @Test
@@ -128,7 +135,6 @@ class SimpleFactsResolverTest {
         @Test
         @DisplayName("should resolve a key to a null data point if a fact was not added for that key")
         void unknownFactIsResolvesToNull() {
-            DataFetcher<MockData, Context> dataFetcher = mock(DataFetcher.class);
             SimpleFactsResolver<Context> factsResolver = new SimpleFactsResolver<>(context, Map.of(
                     TestDataSources.MOCK, dataFetcher
             ));

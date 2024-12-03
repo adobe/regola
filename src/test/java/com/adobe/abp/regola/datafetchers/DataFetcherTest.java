@@ -27,6 +27,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +46,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class DataFetcherTest {
 
     @Nested
@@ -120,13 +124,17 @@ class DataFetcherTest {
     @Nested
     class CachingRequests {
 
+        @Mock
+        CompletableFuture<Object> future;
+
+        @Mock
+        DataCache<Object> cache;
+
         private final Context context = mock(Context.class);
 
         @Test
         @DisplayName("should fetch data from cache")
         void fetchWillCallCache() {
-            CompletableFuture<Object> future = mock(CompletableFuture.class);
-            DataCache<Object> cache = mock(DataCache.class);
             when(cache.get(anyString(), any())).thenReturn(future);
 
             final var dataFetcher = new CachedDataFetcher(cache);
@@ -138,8 +146,6 @@ class DataFetcherTest {
         @Test
         @DisplayName("should fetch data from cache on any N calls")
         void fetchWillCallCacheNTimes() {
-            DataCache<Object> cache = mock(DataCache.class);
-
             final var dataFetcher = new CachedDataFetcher(cache);
 
             dataFetcher.fetch(context);
