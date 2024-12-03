@@ -561,6 +561,16 @@ class NumberRuleIntegerTest {
 
             RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -9, 3);
         }
+
+        @Test
+        @DisplayName("evaluate as failed when attempting to divide by zero")
+        void divideByZero() {
+            rule.setValue(0);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 9));
+
+            RuleTestUtils.evaluateAndTestWithMessage(rule, resolver, ruleResultBuilder, Result.FAILED, "java.lang.ArithmeticException: / by zero", 0);
+        }
     }
 
     @Nested
