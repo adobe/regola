@@ -470,6 +470,110 @@ class NumberRuleIntegerTest {
     }
 
     @Nested
+    @DisplayName("divisible-by should")
+    class DivisibleBy {
+
+        private ValuesRuleResult.RuleResultBuilder<Integer> ruleResultBuilder;
+
+        @BeforeEach
+        void setup() {
+            rule.setOperator(Operator.DIVISIBLE_BY);
+            rule.setValue(3);
+
+            ruleResultBuilder = ValuesRuleResult.<Integer>builder().with(r -> {
+                r.type = RuleType.NUMBER.getName();
+                r.operator = Operator.DIVISIBLE_BY;
+                r.key = RULE_KEY;
+                r.expectedValue = 3;
+            });
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact is divisible by rule value")
+        void factIsDivisible() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 9));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, 9, 3);
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if fact is not divisible by rule value")
+        void factIsNotDivisible() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 10));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.INVALID, 10, 3);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact is zero")
+        void factEqualsZero() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 0));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, 0, 3);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if fact equals divisor")
+        void factEqualsDivisor() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 3));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, 3, 3);
+        }
+
+        @Test
+        @DisplayName("evaluate as invalid if fact exists and rule has a null value")
+        void factIsNotValidOnNullRuleValue() {
+            rule.setValue(null);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 9));
+
+            RuleTestUtils.evaluateAndTestWithNullValue(rule, resolver, ruleResultBuilder, Result.INVALID, 9);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid for negative numbers that are divisible")
+        void negativeFactIsDivisible() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> -9));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -9, 3);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if (negative) divisor and fact are divisible")
+        void negativeDivisorFactIsDivisible() {
+            rule.setValue(-3);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> -9));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -9, -3);
+        }
+
+        @Test
+        @DisplayName("evaluate as valid if (negative) fact is divisible by positive divisor")
+        void negativeFactPositiveDivisorIsDivisible() {
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> -9));
+
+            RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID, -9, 3);
+        }
+
+        @Test
+        @DisplayName("evaluate as failed when attempting to divide by zero")
+        void divideByZero() {
+            rule.setValue(0);
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> 9));
+
+            RuleTestUtils.evaluateAndTestWithMessage(rule, resolver, ruleResultBuilder, Result.FAILED, "java.lang.ArithmeticException: / by zero", 0);
+        }
+    }
+
+    @Nested
     @DisplayName("contains should")
     class Contains {
 
@@ -556,10 +660,10 @@ class NumberRuleIntegerTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported")
-        void factIsNotValidOnEmptyFact(Operator operator) {
+        void operationIsInvalid(Operator operator) {
             setup(operator);
 
             when(resolver.resolveFact(RULE_KEY))

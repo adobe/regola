@@ -214,9 +214,11 @@ The number can be an integer or a double.
 }
 ```
 
-**Supported operators**: EQUALS, GREATER_THAN, GREATER_THAN_EQUAL, LESS_THAN, LESS_THAN_EQUAL, CONTAINS
+**Supported operators**: EQUALS, GREATER_THAN, GREATER_THAN_EQUAL, LESS_THAN, LESS_THAN_EQUAL, CONTAINS, DIVISIBLE_BY
 
 Integer-Double comparisons between the rule's value and the data provided by the fact work for all operators except `CONTAINS`.
+
+The `DIVISIBLE_BY` operator is valid only for integer values since divisibility is not well-defined for floating-point numbers.
 
 ##### Some examples
 
@@ -233,6 +235,10 @@ Integer-Double comparisons between the rule's value and the data provided by the
 | 7          | CONTAINS           | [ 6, 8]      | INVALID |
 | 7          | CONTAINS           | [ 6, 7.0, 8] | INVALID |
 | 7.0        | CONTAINS           | [ 6, 7.0, 8] | VALID   |
+| 7          | DIVISIBLE_BY       | 7            | VALID   |
+| 7          | DIVISIBLE_BY       | 8            | INVALID |
+| 0          | DIVISIBLE_BY       | 8            | FAILED  |
+| 7          | DIVISIBLE_BY       | 0            | VALID   |
 | any number | supported operator | null         | INVALID |
 | null       | supported operator | any number   | INVALID |
 

@@ -21,7 +21,8 @@ public enum Operator {
     CONTAINS,
     INTERSECTS,
     STARTS_WITH,
-    ENDS_WITH
+    ENDS_WITH,
+    DIVISIBLE_BY
 
     // Operators not supported yet
     // BETWEEN,

@@ -559,7 +559,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as invalid")
         void factIsNotValidOnEmptyFact(Operator operator) {
@@ -573,7 +573,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"},
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"},
                 mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("evaluate as not supported even if both fact and rule value are null")
         void factAndRuleValueAreNull(Operator operator) {
@@ -607,7 +607,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"})
         @DisplayName("evaluate as invalid if fact is null")
         void factIsNotValidOnNullFact(Operator operator) {
             setup(operator);
@@ -620,7 +620,7 @@ class NumberRuleDoubleTest {
 
         @ParameterizedTest
         @EnumSource(value = Operator.class,
-                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS"})
+                names = {"EQUALS", "GREATER_THAN", "GREATER_THAN_EQUAL", "LESS_THAN", "LESS_THAN_EQUAL", "CONTAINS", "DIVISIBLE_BY"})
         @DisplayName("evaluate as invalid if fact and value are both null")
         void nullFactIsInvalidIfRuleValueIsNull(Operator operator) {
             setup(operator);
