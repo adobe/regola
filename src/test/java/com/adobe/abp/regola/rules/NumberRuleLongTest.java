@@ -181,7 +181,6 @@ class NumberRuleLongTest {
     class GreaterThanEqual {
 
         private ValuesRuleResult.RuleResultBuilder<Long> ruleResultBuilder;
-        private ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilderMixedTypes;
 
         @BeforeEach
         void setup() {
@@ -189,12 +188,6 @@ class NumberRuleLongTest {
             rule.setValue(1L);
 
             ruleResultBuilder = ValuesRuleResult.<Long>builder().with(r -> {
-                r.type = RuleType.NUMBER.getName();
-                r.operator = Operator.GREATER_THAN_EQUAL;
-                r.key = RULE_KEY;
-                r.expectedValue = 1L;
-            });
-            ruleResultBuilderMixedTypes = ValuesRuleResult.builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
                 r.operator = Operator.GREATER_THAN_EQUAL;
                 r.key = RULE_KEY;
@@ -235,7 +228,6 @@ class NumberRuleLongTest {
     class LessThan {
 
         private ValuesRuleResult.RuleResultBuilder<Long> ruleResultBuilder;
-        private ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilderMixedTypes;
 
         @BeforeEach
         void setup() {
@@ -243,12 +235,6 @@ class NumberRuleLongTest {
             rule.setValue(10L);
 
             ruleResultBuilder = ValuesRuleResult.<Long>builder().with(r -> {
-                r.type = RuleType.NUMBER.getName();
-                r.operator = Operator.LESS_THAN;
-                r.key = RULE_KEY;
-                r.expectedValue = 10L;
-            });
-            ruleResultBuilderMixedTypes = ValuesRuleResult.builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
                 r.operator = Operator.LESS_THAN;
                 r.key = RULE_KEY;
@@ -280,7 +266,6 @@ class NumberRuleLongTest {
     class LessThanEqual {
 
         private ValuesRuleResult.RuleResultBuilder<Long> ruleResultBuilder;
-        private ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilderMixedTypes;
 
         @BeforeEach
         void setup() {
@@ -288,12 +273,6 @@ class NumberRuleLongTest {
             rule.setValue(10L);
 
             ruleResultBuilder = ValuesRuleResult.<Long>builder().with(r -> {
-                r.type = RuleType.NUMBER.getName();
-                r.operator = Operator.LESS_THAN_EQUAL;
-                r.key = RULE_KEY;
-                r.expectedValue = 10L;
-            });
-            ruleResultBuilderMixedTypes = ValuesRuleResult.builder().with(r -> {
                 r.type = RuleType.NUMBER.getName();
                 r.operator = Operator.LESS_THAN_EQUAL;
                 r.key = RULE_KEY;
