@@ -22,7 +22,10 @@ public enum Operator {
     INTERSECTS,
     STARTS_WITH,
     ENDS_WITH,
-    DIVISIBLE_BY
+    DIVISIBLE_BY,
+    BETWEEN,
+    IS_BEFORE,
+    IS_AFTER
 
     // Operators not supported yet
     // BETWEEN,
