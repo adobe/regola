@@ -20,7 +20,8 @@ import org.apache.commons.io.IOUtils;
 public class TestUtils {
 
     public static <T> String readRules(Class<T> clazz, String filename) throws IOException {
-        InputStream s = clazz.getResourceAsStream(filename);
-        return IOUtils.toString(Objects.requireNonNull(s), StandardCharsets.UTF_8);
+        try (InputStream s = clazz.getResourceAsStream(filename)) {
+            return IOUtils.toString(Objects.requireNonNull(s), StandardCharsets.UTF_8);
+        }
     }
 }
