@@ -93,7 +93,7 @@
         <!-- Testing -->
         <junit.jupyter.version>5.11.4</junit.jupyter.version>
         <assertj.version>3.27.3</assertj.version>
-        <mockito.version>5.14.2</mockito.version>
+        <mockito.version>5.15.2</mockito.version>
     </properties>
 
     <build>
