@@ -44,7 +44,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     private final Executor executor;
     private T min;
     private T max;
-    private T step;
     private boolean minExclusive;
     private boolean maxExclusive;
 
@@ -75,14 +74,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
         return this;
     }
 
-    public T getStep() {
-        return step;
-    }
-
-    public RangeRule<T> setStep(T step) {
-        this.step = step;
-        return this;
-    }
 
     public boolean isMinExclusive() {
         return minExclusive;
@@ -102,29 +93,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
         return this;
     }
 
-    @SuppressWarnings("unchecked")
-    private T convertToTargetType(Number value) {
-        if (min == null) {
-            throw new IllegalStateException("Min value must be set to determine the target type");
-        }
-
-        if (min instanceof Integer) {
-            return (T) Integer.valueOf(value.intValue());
-        } else if (min instanceof Long) {
-            return (T) Long.valueOf(value.longValue());
-        } else if (min instanceof Double) {
-            return (T) Double.valueOf(value.doubleValue());
-        } else if (min instanceof Float) {
-            return (T) Float.valueOf(value.floatValue());
-        } else if (min instanceof Short) {
-            return (T) Short.valueOf(value.shortValue());
-        } else if (min instanceof Byte) {
-            return (T) Byte.valueOf(value.byteValue());
-        }
-
-        throw new IllegalArgumentException("Unsupported numeric type: " + min.getClass());
-    }
-
     private Collection<T> generateExpectedValues() {
         Collection<T> expectedValues = new ArrayList<>();
 
@@ -134,18 +102,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                 expectedValues.add(max);
                 break;
             case IN:
-                if (step != null && min instanceof Number && max instanceof Number && step instanceof Number) {
-                    double minVal = ((Number) min).doubleValue();
-                    double maxVal = ((Number) max).doubleValue();
-                    double stepVal = ((Number) step).doubleValue();
-
-                    for (double i = minVal; i <= maxVal; i += stepVal) {
-                        expectedValues.add(convertToTargetType(i));
-                    }
-                } else {
-                    expectedValues.add(min);
-                    expectedValues.add(max);
-                }
+                expectedValues.add(min);
+                expectedValues.add(max);
                 break;
             case IS_BEFORE:
                 expectedValues.add(min);
@@ -220,9 +178,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     private Result evaluateRange(T fact) {
         switch (getOperator()) {
             case BETWEEN:
-                return evaluateBetween(fact);
             case IN:
-                return evaluateIn(fact);
+                return evaluateBetween(fact);
             case IS_BEFORE:
                 return evaluateIsBefore(fact);
             case IS_AFTER:
@@ -233,31 +190,12 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     }
 
     private Result evaluateBetween(T fact) {
-        int compareMin = fact.compareTo(min);
-        int compareMax = fact.compareTo(max);
-
-        boolean afterMin = minExclusive ? compareMin > 0 : compareMin >= 0;
-        boolean beforeMax = maxExclusive ? compareMax < 0 : compareMax <= 0;
+        boolean afterMin = minExclusive ?
+                fact.compareTo(min) > 0 : fact.compareTo(min) >= 0;
+        boolean beforeMax = maxExclusive ?
+                fact.compareTo(max) < 0 : fact.compareTo(max) <= 0;
 
         return afterMin && beforeMax ? Result.VALID : Result.INVALID;
-    }
-
-    private Result evaluateIn(T fact) {
-        if (step == null) {
-            return evaluateBetween(fact);
-        }
-
-        if (fact instanceof Number && step instanceof Number) {
-            double value = ((Number) fact).doubleValue();
-            double minVal = ((Number) min).doubleValue();
-            double stepVal = ((Number) step).doubleValue();
-
-            if ((value - minVal) % stepVal == 0) {
-                return evaluateBetween(fact);
-            }
-        }
-
-        return Result.INVALID;
     }
 
     private Result evaluateIsBefore(T fact) {
@@ -295,7 +233,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                 ", operator=" + getOperator() +
                 ", min=" + min +
                 ", max=" + max +
-                ", step=" + step +
                 ", minExclusive=" + minExclusive +
                 ", maxExclusive=" + maxExclusive +
                 ", ignore=" + isIgnore() +
