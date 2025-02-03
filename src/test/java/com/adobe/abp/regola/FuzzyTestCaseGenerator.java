@@ -76,7 +76,6 @@ public class FuzzyTestCaseGenerator {
         RuleType pickedRuleType = BOOLEAN_RULES.get(randomizer.nextInt(BOOLEAN_RULES.size()));
         switch (pickedRuleType) {
             case AND:
-                return generateMultiaryRule(pickedRuleType);
             case OR:
                 return generateMultiaryRule(pickedRuleType);
             case NOT:
