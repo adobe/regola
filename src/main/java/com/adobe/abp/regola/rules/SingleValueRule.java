@@ -137,7 +137,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
 
     /**
      * Check if the provided set fact satisfied the rule condition.
-     *
+     * <p>
      * This default implementation support the CONTAINS operator only.
      *
      * @param factsSet to check
@@ -153,12 +153,12 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
 
     /**
      * Check if the provided SINGLE fact satisfies the given predicate.
-     *
+     * <p>
      * Return INVALID if:
      * - fact is null, or
      * - value is null, or
      * - predicate is not satisfied
-     *
+     * <p>
      * Otherwise return a VALID result.
      *
      * @param fact to be checked

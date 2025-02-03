@@ -25,7 +25,7 @@ public interface DataCache<V> {
     /**
      * Returns the future associated with key in this cache, obtaining that value from mappingFunction if necessary.
      * This method provides a simple substitute for the conventional "if cached, return; otherwise create, cache and return" pattern.
-     *
+     * <p>
      * If the specified key is not already associated with a value, attempts to compute its value asynchronously and enters it into this cache unless null.
      *
      * @param key with which the specified value is to be associated

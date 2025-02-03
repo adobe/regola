@@ -24,7 +24,7 @@ public abstract class Rule {
      * This is the type related to the rule itself, not the fact.
      * So, for example a single-value rule with type NUMBER is expected
      * to have a value of type number.
-     *
+     * <p>
      * We use a String type, rather than enum, to allow for new rules (and types) to be added by applications using this library.
      */
     private final String type;
@@ -37,7 +37,7 @@ public abstract class Rule {
 
     /**
      * Flag to mark the rule as ignored.
-     *
+     * <p>
      * By default this flag is set to false.
      */
     private boolean ignore;

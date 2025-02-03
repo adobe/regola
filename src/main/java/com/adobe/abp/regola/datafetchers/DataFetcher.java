@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <C> context used when fetching the data. C must implement {@link Context}
  *
  * All data fetchers must implement the {@link #fetchResponse(Context)} method.
- *
+ * <p>
  * This data fetcher allows for data to be cached.
  * This abstract data fetcher will be responsible for collecting metrics about the data fetching.
  */
@@ -97,7 +97,7 @@ public abstract class DataFetcher<D, C extends Context> {
     /**
      * Key uniquely identifying the fetch request for the context.
      * This will allow the data fetcher to cache requests if possible.
-     *
+     * <p>
      * By default the key returned by this method is a random string, so to enable caching this method needs to be overridden.
      *
      * @param context for which to calculate the request key
@@ -120,10 +120,10 @@ public abstract class DataFetcher<D, C extends Context> {
 
     /**
      * Fetch data for the given context while collecting metrics about it.
-     *
+     * <p>
      * Metrics collected:
      * - time to fetch data in milliseconds
-     *
+     * <p>
      * Metrics are stored within this data fetcher.
      *
      * @param context used to fetch the data
