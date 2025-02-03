@@ -201,7 +201,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                                 return null;
                             }
                             return Optional.of(f)
-                                    .filter(fact -> fact instanceof Set)
+                                    .filter(Set.class::isInstance)
                                     .map(fact -> (Set<T>) fact)
                                     .orElseThrow(() -> new IllegalArgumentException("Fact must be a Set"));
                         }

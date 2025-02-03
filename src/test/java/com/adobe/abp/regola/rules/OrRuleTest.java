@@ -54,9 +54,7 @@ class OrRuleTest {
     void setup() {
         rule = new OrRule();
 
-        ruleResultBuilder = MultiaryBooleanRuleResult.builder().with(r -> {
-            r.type = RuleType.OR.getName();
-        });
+        ruleResultBuilder = MultiaryBooleanRuleResult.builder().with(r -> r.type = RuleType.OR.getName());
     }
 
     private ValuesRuleResult<?> buildRuleResult(KeyBasedRule rule, Result result) {

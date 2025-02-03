@@ -57,9 +57,7 @@ class ConstantRuleTest {
     void evaluateToGivenResult() {
         ConstantRule rule = new ConstantRule();
 
-        final var ruleResultBuilder = RuleResult.baseBuilder().with(r -> {
-            r.type = RuleType.CONSTANT.getName();
-        });
+        final var ruleResultBuilder = RuleResult.baseBuilder().with(r -> r.type = RuleType.CONSTANT.getName());
 
         RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID);
     }
@@ -73,9 +71,7 @@ class ConstantRuleTest {
         var action = new Action().setOnCompletion((result, throwable, ruleResult) -> integerAtomicReference.getAndIncrement());
         rule.setAction(action);
 
-        final var ruleResultBuilder = RuleResult.baseBuilder().with(r -> {
-            r.type = RuleType.CONSTANT.getName();
-        });
+        final var ruleResultBuilder = RuleResult.baseBuilder().with(r -> r.type = RuleType.CONSTANT.getName());
         RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID);
 
         assertThat(integerAtomicReference.get()).isEqualTo(1);

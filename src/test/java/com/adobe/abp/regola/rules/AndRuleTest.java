@@ -51,9 +51,7 @@ class AndRuleTest {
     void setup() {
         rule = new AndRule();
 
-        ruleResultBuilder = MultiaryBooleanRuleResult.builder().with(r -> {
-            r.type = RuleType.AND.getName();
-        });
+        ruleResultBuilder = MultiaryBooleanRuleResult.builder().with(r -> r.type = RuleType.AND.getName());
     }
 
     @Test
