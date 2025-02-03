@@ -12,7 +12,6 @@
 package com.adobe.abp.regola.datafetchers.metrics;
 
 import com.adobe.abp.regola.datafetchers.Context;
-import com.adobe.abp.regola.datafetchers.DataFetcherConfiguration;
 
 public interface MetricsAgent {
 

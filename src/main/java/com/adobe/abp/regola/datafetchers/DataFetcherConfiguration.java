@@ -13,7 +13,6 @@ package com.adobe.abp.regola.datafetchers;
 
 import com.adobe.abp.regola.datafetchers.metrics.LogMetricsAgent;
 import com.adobe.abp.regola.datafetchers.metrics.MetricsAgent;
-import java.util.Set;
 
 public class DataFetcherConfiguration {
 
