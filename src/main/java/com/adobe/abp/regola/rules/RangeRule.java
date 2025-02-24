@@ -197,7 +197,9 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
     private Result evaluateIsBefore(T fact) {
         int compareMin = fact.compareTo(min);
-        return compareMin < 0 ? Result.VALID : Result.INVALID;
+        return minExclusive ?
+                (compareMin <= 0 ? Result.VALID : Result.INVALID) :
+                (compareMin < 0 ? Result.VALID : Result.INVALID);
     }
 
     private Result evaluateIsAfter(T fact) {
