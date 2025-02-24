@@ -28,6 +28,5 @@ public enum Operator {
     IS_AFTER
 
     // Operators not supported yet
-    // BETWEEN,
     // WITHIN_OFFSET
 }
