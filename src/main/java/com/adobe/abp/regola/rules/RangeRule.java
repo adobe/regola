@@ -25,16 +25,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * Experimental rule for evaluating facts against a range of values.
- * Supports basic range operations for comparable types.
- *
- * The rule supports the following operators:
- * <ul>
- * <li>{@link Operator#BETWEEN}</li>
- * <li>{@link Operator#IN}</li>
- * <li>{@link Operator#IS_BEFORE}</li>
- * <li>{@link Operator#IS_AFTER}</li>
- * </ul>
+ * This rule is experimental and subject to change.
+ * <p>
+ *  Rule for evaluating facts against a range of values.
+ *  Supports basic range operations for comparable types.
+ * </p>
+ * <p>
+ *  The rule supports the following operators:
+ *  <ul>
+ *      <li>{@link Operator#BETWEEN}</li>
+ *      <li>{@link Operator#IN}</li>
+ *      <li>{@link Operator#IS_BEFORE}</li>
+ *      <li>{@link Operator#IS_AFTER}</li>
+ *  </ul>
+ * </p>
  *
  * @param <T> type of the fact (must extend Comparable)
  */
@@ -73,7 +77,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
         this.max = max;
         return this;
     }
-
 
     public boolean isMinExclusive() {
         return minExclusive;
