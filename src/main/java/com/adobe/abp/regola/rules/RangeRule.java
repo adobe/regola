@@ -184,26 +184,29 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     }
 
     private Result evaluateBetween(T fact) {
-        boolean afterMin = minExclusive ?
-                fact.compareTo(min) > 0 : fact.compareTo(min) >= 0;
-        boolean beforeMax = maxExclusive ?
-                fact.compareTo(max) < 0 : fact.compareTo(max) <= 0;
+        int minComparison = fact.compareTo(min);
+        int maxComparison = fact.compareTo(max);
+
+        boolean afterMin = minExclusive ? minComparison > 0 : minComparison >= 0;
+        boolean beforeMax = maxExclusive ? maxComparison < 0 : maxComparison <= 0;
 
         return afterMin && beforeMax ? Result.VALID : Result.INVALID;
     }
 
     private Result evaluateIsBefore(T fact) {
-        int compareMin = fact.compareTo(min);
-        return minExclusive ?
-                (compareMin <= 0 ? Result.VALID : Result.INVALID) :
-                (compareMin < 0 ? Result.VALID : Result.INVALID);
+        int minComparison = fact.compareTo(min);
+
+        boolean isBefore = minExclusive ? minComparison <= 0 : minComparison < 0;
+
+        return isBefore ? Result.VALID : Result.INVALID;
     }
 
     private Result evaluateIsAfter(T fact) {
-        int compareMax = fact.compareTo(max);
-        return maxExclusive ?
-                (compareMax >= 0 ? Result.VALID : Result.INVALID) :
-                (compareMax > 0 ? Result.VALID : Result.INVALID);
+        int maxComparison = fact.compareTo(max);
+
+        boolean isAfter = maxExclusive ? maxComparison >= 0 : maxComparison > 0;
+
+        return isAfter ? Result.VALID : Result.INVALID;
     }
 
     @SuppressWarnings("unchecked")
