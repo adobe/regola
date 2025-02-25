@@ -201,7 +201,9 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
     private Result evaluateIsAfter(T fact) {
         int compareMax = fact.compareTo(max);
-        return compareMax > 0 ? Result.VALID : Result.INVALID;
+        return maxExclusive ?
+                (compareMax >= 0 ? Result.VALID : Result.INVALID) :
+                (compareMax > 0 ? Result.VALID : Result.INVALID);
     }
 
     @SuppressWarnings("unchecked")
