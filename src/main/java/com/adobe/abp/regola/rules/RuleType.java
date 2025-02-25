@@ -29,7 +29,8 @@ public enum RuleType {
     NUMBER("NUMBER"),
     SET("SET"),
     DATE("DATE"),
-    NULL("NULL");
+    NULL("NULL"),
+    RANGE("RANGE");
 
     private final String name;
 
