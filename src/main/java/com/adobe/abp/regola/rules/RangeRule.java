@@ -16,13 +16,12 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import com.adobe.abp.regola.utils.futures.FutureUtils;
-import jdk.jfr.Experimental;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import jdk.jfr.Experimental;
 
 /**
  * This rule is experimental and subject to change.
@@ -121,7 +120,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
         return new EvaluationResult() {
             private Result result = Result.MAYBE;
             private T evaluatedFact;
-            private Collection<T> evaluatedFacts;
             private String message;
             private Throwable cause;
             private final Collection<T> expectedValues = generateExpectedValues();
@@ -135,11 +133,7 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                     r.description = getDescription();
                     r.result = result;
                     r.actualValue = evaluatedFact;
-                    r.actualValues = evaluatedFacts;
                     r.expectedValues = expectedValues;
-                    if (!expectedValues.isEmpty()) {
-                        r.expectedValue = expectedValues.iterator().next();
-                    }
                     r.message = message;
                     r.cause = cause;
                     r.ignored = isIgnore();
