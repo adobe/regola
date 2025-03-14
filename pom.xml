@@ -91,7 +91,7 @@
         <fburato.functional.utils.core.version>1.0.0</fburato.functional.utils.core.version>
 
         <!-- Testing -->
-        <junit.jupyter.version>5.12.0</junit.jupyter.version>
+        <junit.jupyter.version>5.12.1</junit.jupyter.version>
         <assertj.version>3.27.3</assertj.version>
         <mockito.version>5.17.0</mockito.version>
     </properties>
