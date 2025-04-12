@@ -17,6 +17,7 @@ import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,8 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class RuleTestUtils {
 
     public static void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           RuleResult.RuleResultBuilder ruleResultBuilder,
-                                           Result expectedResult) {
+            RuleResult.RuleResultBuilder ruleResultBuilder,
+            Result expectedResult) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
@@ -39,8 +40,8 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                           Result expectedResult) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
@@ -54,10 +55,10 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                           Result expectedResult,
-                                           T actualValue,
-                                           T expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T actualValue,
+            T expectedValue) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -78,10 +79,10 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                           Result expectedResult,
-                                           Collection<T> actualValues,
-                                           T expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            Collection<T> actualValues,
+            T expectedValue) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -102,10 +103,10 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                           Result expectedResult,
-                                           T actualValue,
-                                           Collection<T> expectedValues) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T actualValue,
+            Collection<T> expectedValues) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -126,10 +127,10 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                           Result expectedResult,
-                                           Collection<T> actualValues,
-                                           Collection<T> expectedValues) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            Collection<T> actualValues,
+            Collection<T> expectedValues) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -150,9 +151,9 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTest(Rule rule, FactsResolver resolver,
-                                           ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                           Result expectedResult,
-                                           T expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T expectedValue) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -172,9 +173,9 @@ public class RuleTestUtils {
     }
 
     public static RuleResult evaluateAndTestWithMessage(Rule rule, FactsResolver resolver,
-                                                        ValuesRuleResult.RuleResultBuilder<?> ruleResultBuilder,
-                                                        Result expectedResult,
-                                                        String expectedMessage) {
+            ValuesRuleResult.RuleResultBuilder<?> ruleResultBuilder,
+            Result expectedResult,
+            String expectedMessage) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
@@ -195,10 +196,10 @@ public class RuleTestUtils {
     }
 
     public static <T> RuleResult evaluateAndTestWithMessage(Rule rule, FactsResolver resolver,
-                                                            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                            Result expectedResult,
-                                                            String expectedMessage,
-                                                            T expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            String expectedMessage,
+            T expectedValue) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -223,10 +224,10 @@ public class RuleTestUtils {
     }
 
     public static <T> RuleResult evaluateAndTestWithMessage(Rule rule, FactsResolver resolver,
-                                                            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                            Result expectedResult,
-                                                            String expectedMessage,
-                                                            Collection<T> expectedValues) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            String expectedMessage,
+            Collection<T> expectedValues) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -251,33 +252,34 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTestWithNullValue(Rule rule, FactsResolver resolver,
-                                                        ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                        Result expectedResult,
-                                                        T actualValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T actualValue) {
         evaluateAndTestWithValue(rule, resolver, ruleResultBuilder, expectedResult, actualValue, null);
     }
 
     public static <T> void evaluateAndTestWithValue(Rule rule, FactsResolver resolver,
-                                                    ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                    Result expectedResult,
-                                                    T expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T expectedValue) {
         evaluateAndTestWithValueAndMessage(rule, resolver, ruleResultBuilder, expectedResult, null, expectedValue,null);
     }
 
     public static <T> void evaluateAndTestWithValue(Rule rule, FactsResolver resolver,
-                                                    ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                    Result expectedResult,
-                                                    T actualValue,
-                                                    T expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T actualValue,
+            T expectedValue) {
         evaluateAndTestWithValueAndMessage(rule, resolver, ruleResultBuilder, expectedResult, actualValue, expectedValue,null);
     }
 
-    public static <T> void evaluateAndTestWithValueAndMessage(Rule rule, FactsResolver resolver,
-                                                              ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                              Result expectedResult,
-                                                              T actualValue,
-                                                              T expectedValue,
-                                                              String message) {
+    public static <T> void evaluateAndTestWithValueAndMessage(Rule rule,
+            FactsResolver resolver,
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T actualValue,
+            T expectedValue,
+            String message) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -298,12 +300,42 @@ public class RuleTestUtils {
         assertThat(evaluationResult.snapshot()).isEqualTo(expectedFinalResult);
     }
 
+    public static <T> void evaluateAndTestWithValueAndMessage(Rule rule,
+            FactsResolver resolver,
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            T actualValue,
+            T expectedValue,
+            List<T> expectedValues,
+            String message) {
+        final var evaluationResult = rule.evaluate(resolver);
+
+        final var expectedInterimResult = ruleResultBuilder.with(r -> {
+            r.result = Result.MAYBE;
+            r.expectedValue = expectedValue;
+            r.expectedValues = expectedValues;
+        }).build();
+        assertThat(evaluationResult.snapshot()).isEqualTo(expectedInterimResult);
+
+        final var result = evaluationResult.status().join();
+
+        assertThat(result).isEqualTo(expectedResult);
+        final var expectedFinalResult = ruleResultBuilder.with(r -> {
+            r.result = expectedResult;
+            r.actualValue = actualValue;
+            r.expectedValue = expectedValue;
+            r.expectedValues = expectedValues;
+            r.message = message;
+        }).build();
+        assertThat(evaluationResult.snapshot()).isEqualTo(expectedFinalResult);
+    }
+
     // Use this method when the type of the actual value and expected value do not match (e.g. integer vs doubles)
     public static void evaluateAndTestWithAnyTypeValue(Rule rule, FactsResolver resolver,
-                                                       ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilder,
-                                                       Result expectedResult,
-                                                       Object actualValue,
-                                                       Object expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilder,
+            Result expectedResult,
+            Object actualValue,
+            Object expectedValue) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -325,10 +357,10 @@ public class RuleTestUtils {
 
     // Use this method when the type of the actual value and expected value do not match (e.g. integer vs doubles)
     public static void evaluateAndTestWithAnyTypeValue(Rule rule, FactsResolver resolver,
-                                                       ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilder,
-                                                       Result expectedResult,
-                                                       Collection<Object> actualValues,
-                                                       Object expectedValue) {
+            ValuesRuleResult.RuleResultBuilder<Object> ruleResultBuilder,
+            Result expectedResult,
+            Collection<Object> actualValues,
+            Object expectedValue) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
@@ -349,9 +381,9 @@ public class RuleTestUtils {
     }
 
     public static <T> void evaluateAndTestWithValues(Rule rule, FactsResolver resolver,
-                                                     ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
-                                                     Result expectedResult,
-                                                     Set<T> values) {
+            ValuesRuleResult.RuleResultBuilder<T> ruleResultBuilder,
+            Result expectedResult,
+            Set<T> values) {
         final var evaluationResult = rule.evaluate(resolver);
 
         final var expectedInterimResult = ruleResultBuilder.with(r -> {
