@@ -25,6 +25,7 @@ import com.adobe.abp.regola.rules.NullRule;
 import com.adobe.abp.regola.rules.NumberRule;
 import com.adobe.abp.regola.rules.Operator;
 import com.adobe.abp.regola.rules.OrRule;
+import com.adobe.abp.regola.rules.RangeRule;
 import com.adobe.abp.regola.rules.Rule;
 import com.adobe.abp.regola.rules.RuleType;
 import com.adobe.abp.regola.rules.SetRule;
@@ -47,7 +48,7 @@ public class FuzzyTestCaseGenerator {
     private final Random randomizer = new Random();
     private final List<RuleType> BOOLEAN_RULES = List.of(RuleType.AND, RuleType.OR, RuleType.NOT);
     private final List<RuleType> DATA_RULES = List.of(RuleType.NUMBER, RuleType.SET, RuleType.STRING, RuleType.EXISTS,
-            RuleType.DATE, RuleType.NULL, RuleType.CONSTANT);
+            RuleType.DATE, RuleType.NULL, RuleType.CONSTANT, RuleType.RANGE);
     private static final int MAX_NESTING_LEVEL = 20;
     private int nestingLevel = 0;
     private static final int MAX_NUMBER_SUBRULES = 20;
@@ -130,6 +131,8 @@ public class FuzzyTestCaseGenerator {
                 return generateNullRule();
             case CONSTANT:
                 return generateConstantRule();
+            case RANGE:
+                return generateRangeRule();
             default:
                 throw new IllegalArgumentException(pickedRuleType + " is invalid");
         }
@@ -214,6 +217,25 @@ public class FuzzyTestCaseGenerator {
 
     public ConstantRule generateConstantRule() {
         return new ConstantRule(pickRandomResult());
+    }
+
+    public RangeRule<?> generateRangeRule() {
+        RangeRule<Integer> rule = new RangeRule<>();
+        rule.setOperator(pickRandomOperator());
+
+        final var key = getRandomLetter(5);
+        final var min = getRandomNumber(-200, 200);
+        final var max = getRandomNumber(-200, 200);
+
+        resolver.addFact(new Fact<>(key, data -> randomizer.nextInt(600) - 300));
+
+        rule.setKey(key);
+        rule.setMin(min);
+        rule.setMax(max);
+        rule.setMinExclusive(randomizer.nextBoolean());
+        rule.setMaxExclusive(randomizer.nextBoolean());
+
+        return rule;
     }
 
     public Result pickRandomResult() {
