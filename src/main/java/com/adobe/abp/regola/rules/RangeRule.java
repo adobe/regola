@@ -16,8 +16,8 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import com.adobe.abp.regola.utils.futures.FutureUtils;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -96,22 +96,16 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     }
 
     private Collection<T> generateExpectedValues() {
-        Collection<T> expectedValues = new ArrayList<>();
-
         switch (getOperator()) {
             case BETWEEN:
-                expectedValues.add(min);
-                expectedValues.add(max);
-                break;
+                return List.of(min, max);
             case IS_BEFORE:
-                expectedValues.add(min);
-                break;
+                return List.of(min);
             case IS_AFTER:
-                expectedValues.add(max);
-                break;
+                return List.of(max);
         }
 
-        return expectedValues;
+        return List.of();
     }
 
     @Override
@@ -121,7 +115,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
             private T evaluatedFact;
             private String message;
             private Throwable cause;
-            private final Collection<T> expectedValues = generateExpectedValues();
 
             @Override
             public RuleResult snapshot() {
@@ -132,7 +125,7 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                     r.description = getDescription();
                     r.result = result;
                     r.actualValue = evaluatedFact;
-                    r.expectedValues = expectedValues;
+                    r.expectedValues = generateExpectedValues();
                     r.message = message;
                     r.cause = cause;
                     r.ignored = isIgnore();
