@@ -16,33 +16,40 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import com.adobe.abp.regola.utils.futures.FutureUtils;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import jdk.jfr.Experimental;
 
 /**
- * This rule is experimental and subject to change.
+ * Represents a rule for evaluating facts against a range of values.
  * <p>
- *  Rule for evaluating facts against a range of values.
- *  Supports basic range operations for comparable types.
+ * This rule is experimental and subject to change. It supports basic range operations
+ * for types that implement {@link Comparable}.
  * </p>
  * <p>
- *  The rule supports the following operators:
- *  <ul>
- *      <li>{@link Operator#BETWEEN}</li>
- *      <li>{@link Operator#IN}</li>
- *      <li>{@link Operator#IS_BEFORE}</li>
- *      <li>{@link Operator#IS_AFTER}</li>
- *  </ul>
+ * The following operators are supported:
+ * </p>
+ * <ul>
+ *     <li>{@link Operator#BETWEEN} - Checks if a value lies within a specified range.</li>
+ *     <li>{@link Operator#IS_BEFORE} - Checks if a value is less than a specified minimum.</li>
+ *     <li>{@link Operator#IS_AFTER} - Checks if a value is greater than a specified maximum.</li>
+ * </ul>
+ * <p>
+ * This rule can be configured with minimum and maximum values, as well as whether the
+ * range boundaries are inclusive or exclusive.
  * </p>
  *
- * @param <T> type of the fact (must extend Comparable)
+ * @param <T> the type of the fact being evaluated (must extend {@link Comparable})
  */
 @Experimental
 public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
+
+    private final List<Operator> SUPPORTED_OPERATORS = List.of(Operator.BETWEEN, Operator.IS_BEFORE, Operator.IS_AFTER);
 
     private final Executor executor;
     private T min;
@@ -96,16 +103,22 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     }
 
     private Collection<T> generateExpectedValues() {
+        var values = new ArrayList<T>();
         switch (getOperator()) {
             case BETWEEN:
-                return List.of(min, max);
+                values.add(min);
+                values.add(max);
+                break;
             case IS_BEFORE:
-                return List.of(min);
+                values.add(min);
+                break;
             case IS_AFTER:
-                return List.of(max);
+                values.add(max);
+                break;
         }
 
-        return List.of();
+        values.removeIf(Objects::isNull);
+        return values;
     }
 
     @Override
@@ -134,6 +147,15 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
             @Override
             public CompletableFuture<Result> status() {
+                if (!SUPPORTED_OPERATORS.contains(getOperator())) {
+                    return FutureUtils.supplyAsync(() -> {
+                                result = Result.OPERATION_NOT_SUPPORTED;
+                                return result;
+                            }, executor)
+                            .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
+                                    .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
+                }
+
                 return resolveFact(factsResolver, getKey())
                         .thenCompose(fact -> FutureUtils.supplyAsync(() -> handleSuccess(fact), executor))
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
@@ -152,6 +174,36 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                 return result;
             }
 
+            private Result evaluateRange(T fact) {
+                var operator = getOperator();
+
+                if (operator == Operator.BETWEEN) {
+                    if (min == null || max == null) {
+                        message = "min or max are null";
+                        return Result.FAILED;
+                    }
+                    return evaluateBetween(fact);
+                }
+
+                if (operator == Operator.IS_BEFORE) {
+                    if (min == null) {
+                        message = "min is null";
+                        return Result.FAILED;
+                    }
+                    return evaluateIsBefore(fact);
+                }
+
+                if (operator == Operator.IS_AFTER) {
+                    if (max == null) {
+                        message = "max is null";
+                        return Result.FAILED;
+                    }
+                    return evaluateIsAfter(fact);
+                }
+
+                return Result.OPERATION_NOT_SUPPORTED;
+            }
+
             private Result handleFailure(Throwable throwable) {
                 result = Result.FAILED;
                 message = throwable.getMessage();
@@ -159,19 +211,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                 return result;
             }
         };
-    }
-
-    private Result evaluateRange(T fact) {
-        switch (getOperator()) {
-            case BETWEEN:
-                return evaluateBetween(fact);
-            case IS_BEFORE:
-                return evaluateIsBefore(fact);
-            case IS_AFTER:
-                return evaluateIsAfter(fact);
-            default:
-                return Result.OPERATION_NOT_SUPPORTED;
-        }
     }
 
     private Result evaluateBetween(T fact) {
@@ -219,15 +258,15 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     @Override
     public String toString() {
         return "RangeRule{" +
-                "type='" + getType() + '\'' +
-                ", description='" + getDescription() + '\'' +
-                ", key='" + getKey() + '\'' +
-                ", operator=" + getOperator() +
-                ", min=" + min +
-                ", max=" + max +
-                ", minExclusive=" + minExclusive +
-                ", maxExclusive=" + maxExclusive +
-                ", ignore=" + isIgnore() +
-                "}";
+               "type='" + getType() + '\'' +
+               ", description='" + getDescription() + '\'' +
+               ", key='" + getKey() + '\'' +
+               ", operator=" + getOperator() +
+               ", min=" + min +
+               ", max=" + max +
+               ", minExclusive=" + minExclusive +
+               ", maxExclusive=" + maxExclusive +
+               ", ignore=" + isIgnore() +
+               "}";
     }
 }
