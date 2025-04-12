@@ -100,7 +100,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
         switch (getOperator()) {
             case BETWEEN:
-            case IN:
                 expectedValues.add(min);
                 expectedValues.add(max);
                 break;
@@ -172,7 +171,6 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     private Result evaluateRange(T fact) {
         switch (getOperator()) {
             case BETWEEN:
-            case IN:
                 return evaluateBetween(fact);
             case IS_BEFORE:
                 return evaluateIsBefore(fact);
