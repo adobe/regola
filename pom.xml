@@ -83,7 +83,7 @@
 
         <!-- Dependencies versions -->
         <commons.io.version>2.19.0</commons.io.version>
-        <commons.collections4.version>4.4</commons.collections4.version>
+        <commons.collections4.version>4.5.0</commons.collections4.version>
         <commons.lang3.version>3.17.0</commons.lang3.version>
         <commons.math3.version>3.6.1</commons.math3.version>
         <jackson.version>2.18.3</jackson.version>
