@@ -92,7 +92,7 @@
 
         <!-- Testing -->
         <junit.jupyter.version>5.12.2</junit.jupyter.version>
-        <assertj.version>3.27.3</assertj.version>
+        <assertj.version>3.27.6</assertj.version>
         <mockito.version>5.20.0</mockito.version>
     </properties>
 
