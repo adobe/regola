@@ -46,17 +46,17 @@ public class StringRule extends SingleValueRule<String> {
             case EQUALS:
                 return checkFact(fact, String::equals);
             case GREATER_THAN:
-                return checkFact(fact, (f, value) -> StringUtils.compare(f, value) > 0);
+                return checkFact(fact, (f, value) -> StringUtils.compare(f, value, true) > 0);
             case GREATER_THAN_EQUAL:
-                return checkFact(fact, (f, value) -> StringUtils.compare(f, value) >= 0);
+                return checkFact(fact, (f, value) -> StringUtils.compare(f, value, true) >= 0);
             case LESS_THAN:
-                return checkFact(fact, (f, value) -> StringUtils.compare(f, value) < 0);
+                return checkFact(fact, (f, value) -> StringUtils.compare(f, value, true) < 0);
             case LESS_THAN_EQUAL:
-                return checkFact(fact, (f, value) -> StringUtils.compare(f, value) <= 0);
+                return checkFact(fact, (f, value) -> StringUtils.compare(f, value, true) <= 0);
             case STARTS_WITH:
-                return checkFact(fact, StringUtils::startsWith);
+                return checkFact(fact, String::startsWith);
             case ENDS_WITH:
-                return checkFact(fact, StringUtils::endsWith);
+                return checkFact(fact, String::endsWith);
             default:
                 return Result.OPERATION_NOT_SUPPORTED;
         }
