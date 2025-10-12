@@ -19,7 +19,16 @@
 
 ## Basic usage
 
-1. Write a rule
+1. Add to your maven dependencies:
+```xml
+<dependency>
+  <groupId>com.adobe.abp</groupId>
+  <artifactId>regola</artifactId>
+  <version>0.0.24</version>
+</dependency>
+```
+
+2. Write a rule
 
 ```java
 var rule = new StringRule();
@@ -46,14 +55,14 @@ var rule = new StringRule("MARKET_SEGMENT", Operator.EQUALS, "COM");
 rule.setDescription("The market segment should be COM");
 ```
 
-2. Define how data for the "MARKET_SEGMENT" `key` must be retrieved
+3. Define how data for the "MARKET_SEGMENT" `key` must be retrieved
 
 ```java
 var factsResolver = new SimpleFactsResolver<>();
 factsResolver.addFact(new Fact<>("MARKET_SEGMENT", data -> "COM"));
 ```
 
-3. Evaluate
+4. Evaluate
 
 ```java
 var evaluationResult = new Evaluator().evaluate(rule, factsResolver);
@@ -68,7 +77,7 @@ var result = evaluationResult.snapshot();
 The result object will contain information on whether the evaluation was valid or not, plus
 any relevant information about the rule run.
 
-4. If we were to print the `result` as json
+5. If we were to print the `result` as json
 
 ```json5
 {
