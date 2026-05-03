@@ -88,7 +88,7 @@
         <commons.math3.version>3.6.1</commons.math3.version>
         <jackson.version>2.20.0</jackson.version>
         <jackson-annotations.version>2.20</jackson-annotations.version>
-        <caffeine.version>3.2.2</caffeine.version>
+        <caffeine.version>3.2.4</caffeine.version>
         <fburato.functional.utils.core.version>1.0.0</fburato.functional.utils.core.version>
 
         <!-- Testing -->
