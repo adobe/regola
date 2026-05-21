@@ -20,8 +20,8 @@ This guide is for maintainers of the regola project only.
 - Generate a [User Access Token](https://central.sonatype.org/publish/generate-token/)
 - Store your sonatype username and password as environment variables:
   ```sh
-  export SONATYPE_USERNAME=<your_sonatype_username>
-  export SONATYPE_PASSWORD=<your_sonatype_password>
+  export CENTRAL_SONATYPE_USERNAME=<your_sonatype_username>
+  export CENTRAL_SONATYPE_PASSWORD=<your_sonatype_password>
   ```
 
 > [!IMPORTANT]

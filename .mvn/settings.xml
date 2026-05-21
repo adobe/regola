@@ -1,9 +1,9 @@
 <settings>
     <servers>
         <server>
-            <id>ossrh</id>
-            <username>${env.SONATYPE_USERNAME}</username>
-            <password>${env.SONATYPE_PASSWORD}</password>
+            <id>central</id>
+            <username>${env.CENTRAL_SONATYPE_USERNAME}</username>
+            <password>${env.CENTRAL_SONATYPE_PASSWORD}</password>
         </server>
     </servers>
     <profiles>
