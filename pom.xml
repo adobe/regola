@@ -49,7 +49,7 @@
     <scm>
         <connection>scm:git:git@github.com:adobe/regola.git</connection>
         <developerConnection>scm:git:git@github.com:adobe/regola.git</developerConnection>
-        <url>https://github.com/adobe/regola/tree/master</url>
+        <url>https://github.com/adobe/regola/tree/main</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -70,11 +70,10 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Maven compile settings -->
-        <maven.compiler.version>11</maven.compiler.version>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <maven.compiler.plugin.version>3.15.0</maven.compiler.plugin.version>
-        <maven.surfire.plugin.version>3.5.5</maven.surfire.plugin.version>
+        <maven.surefire.plugin.version>3.5.5</maven.surefire.plugin.version>
         <maven.source.plugin.version>3.4.0</maven.source.plugin.version>
         <maven.javadoc.plugin.version>3.12.0</maven.javadoc.plugin.version>
         <maven.gpg.plugin.version>3.2.8</maven.gpg.plugin.version>
@@ -92,7 +91,7 @@
         <fburato.functional.utils.core.version>1.0.0</fburato.functional.utils.core.version>
 
         <!-- Testing -->
-        <junit.jupyter.version>5.14.4</junit.jupyter.version>
+        <junit.jupiter.version>5.14.4</junit.jupiter.version>
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.23.0</mockito.version>
     </properties>
@@ -185,7 +184,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>${maven.surfire.plugin.version}</version>
+                <version>${maven.surefire.plugin.version}</version>
             </plugin>
         </plugins>
     </build>
@@ -241,13 +240,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>${junit.jupyter.version}</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
-            <version>${junit.jupyter.version}</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
