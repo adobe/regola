@@ -1,6 +1,7 @@
 # regola
 
 [![Maven Central](https://img.shields.io/badge/Maven%20Central-latest-blue)](https://central.sonatype.com/artifact/com.adobe.abp/regola)
+[![CI](https://github.com/adobe/regola/actions/workflows/ci.yml/badge.svg)](https://github.com/adobe/regola/actions/workflows/ci.yml)
 
 **regola** is a rule evaluator written in Java.
 
@@ -121,6 +122,8 @@ where all the rules must evaluate to VALID for it to evaluate to VALID.
 
 The AND rule is commutative: `A && B = B && A`.
 
+An empty `AND` evaluates to `VALID`. This follows the identity of conjunction: with no subrules, there is nothing to invalidate the expression.
+
 #### Or Rule
 
 The "Or Rule" is used to combine multiple rules together, 
@@ -145,6 +148,8 @@ So, for example: `FAILED || INVALID == FAILED`, while `MAYBE || INVALID == INVAL
 
 The OR rule is commutative: `A || B = B || A`.
 
+An empty `OR` evaluates to `INVALID`. This follows the identity of disjunction: with no subrules, there is nothing that can make the expression valid.
+
 #### Not Rule
 
 The "Not Rule" is used to negate the result of another rule.
@@ -165,6 +170,8 @@ The "Not Rule" is used to negate the result of another rule.
 | MAYBE                   | MAYBE                   |
 | FAILED                  | FAILED                  |
 | OPERATION_NOT_SUPPORTED | OPERATION_NOT_SUPPORTED |
+
+A `NOT` rule must contain a non-null `rule`. If the operand is missing, the evaluation is treated as malformed configuration and fails.
 
 ### Fact-only Rules
 
@@ -431,6 +438,14 @@ Rules can be combined using the boolean rules: AND, OR, NOT.
 #### Ignoring results
 
 Rules can be set to be ignored, so that the evaluation of AND/OR/NOT rules does not take them into account.
+
+This matters for empty or effectively-empty boolean rules too:
+
+- `AND` with no subrules evaluates to `VALID`.
+- `OR` with no subrules evaluates to `INVALID`.
+- `OR` where every subrule is present but marked as `ignored` evaluates to `VALID`, because all configured subrules are excluded from the final decision.
+- `NOT` with an ignored subrule evaluates to `VALID`.
+- `NOT` with no subrule fails.
 
 Example of a rule marked as `ignored`:
 
