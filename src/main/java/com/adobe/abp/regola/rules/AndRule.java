@@ -18,16 +18,16 @@ import com.adobe.abp.regola.results.RuleResult;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
  * This rule evaluates to true if all the subrules evaluate to true.
  * If a subrule is ignored, it is not taken into account for the final result.
  * Short-circuiting: as soon as one of the subrules evaluates to not-VALID, the evaluation stops and the result is not-VALID.
+ * An empty AND has no operands to falsify the conjunction, so it evaluates to VALID (the identity element).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@SuppressWarnings("this-escape")
 public class AndRule extends MultiaryBooleanRule {
 
     public AndRule() {
@@ -41,59 +41,72 @@ public class AndRule extends MultiaryBooleanRule {
 
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
-        return new EvaluationResult() {
+        return new LockingEvaluationResult() {
 
-            private Result result = Result.MAYBE;
-            private final CompletableFuture<Result> status = new CompletableFuture<>();
-            private final AtomicInteger rulesToEvaluate = new AtomicInteger(getRules().size());
-            private List<EvaluationResult> results = List.of();
+            // Number of subrules still to report back. Accessed only inside decideUnderLock (under the lock).
+            private int rulesToEvaluate = getRules().size();
+
+            // Child results, published once in startEvaluation() before any callback is wired up.
+            private volatile List<EvaluationResult> results = List.of();
+
+            @Override
+            protected void startEvaluation() {
+                final List<Rule> rules = getRules();
+                final List<EvaluationResult> evaluated = rules.stream()
+                        .map(rule -> rule.evaluate(factsResolver))
+                        .collect(Collectors.toList());
+                results = evaluated; // safe publication before the callbacks below can fire
+
+                if (rules.isEmpty()) {
+                    complete(Result.VALID); // empty conjunction is the identity ⇒ VALID
+                    return;
+                }
+
+                // Non-blocking: status() kicks off each subrule and whenComplete only registers a callback,
+                // so the subrules evaluate concurrently. Each callback reports back via evaluateSubresult as
+                // it settles; this loop does not wait. (Actual concurrency depends on the fact fetchers being async.)
+                for (int i = 0; i < rules.size(); i++) {
+                    final boolean ignore = rules.get(i).isIgnore();
+                    evaluated.get(i).status()
+                            .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
+                }
+            }
+
+            private void evaluateSubresult(Result subresult, Throwable throwable, boolean ignore) {
+                if (!ignore && throwable != null) {
+                    completeExceptionally(throwable);
+                    return;
+                }
+                decideUnderLock(() -> {
+                    rulesToEvaluate--;
+                    if (!ignore && subresult != Result.VALID) {
+                        return Optional.of(subresult); // short-circuit: a non-VALID subrule fails the AND
+                    } else if (rulesToEvaluate == 0) {
+                        return Optional.of(Result.VALID); // every subrule evaluated (or was ignored) ⇒ VALID
+                    }
+                    return Optional.empty();
+                });
+            }
+
+            @Override
+            protected void afterCompletion(Result completedResult, Throwable throwable) {
+                Optional.ofNullable(getAction())
+                        .ifPresent(action -> action.onCompletion(completedResult, throwable, snapshot()));
+            }
 
             @Override
             public RuleResult snapshot() {
+                final List<EvaluationResult> capturedResults = results;
+                final Result capturedResult = getResult();
                 return MultiaryBooleanRuleResult.builder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
-                    r.result = result;
-                    r.rules = results.stream()
+                    r.result = capturedResult;
+                    r.rules = capturedResults.stream()
                             .map(EvaluationResult::snapshot)
                             .collect(Collectors.toSet());
                     r.ignored = isIgnore();
                 }).build();
-            }
-
-            @Override
-            public CompletableFuture<Result> status() {
-                results = getRules().stream()
-                        .map(this::evaluateRule)
-                        .collect(Collectors.toList());
-                return status
-                        .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
-            }
-
-            private EvaluationResult evaluateRule(Rule rule) {
-                final var evaluationResult = rule.evaluate(factsResolver);
-                evaluationResult.status()
-                        .whenComplete((result, throwable) -> evaluateSubresult(result, throwable, rule.isIgnore()));
-                return evaluationResult;
-            }
-
-            private synchronized void evaluateSubresult(Result subresult, Throwable throwable, boolean ignore) {
-                final var remaining = rulesToEvaluate.decrementAndGet();
-                if (!status.isDone()) {
-                    if (!ignore && throwable != null) {
-                        result = Result.FAILED;
-                        status.completeExceptionally(throwable);
-                    } else {
-                        if (!ignore && subresult != Result.VALID) {
-                            result = subresult;
-                            status.complete(result);
-                        } else if (remaining == 0) {
-                            result = Result.VALID;
-                            status.complete(result);
-                        }
-                    }
-                }
             }
         };
     }

@@ -321,6 +321,59 @@ class AndRuleTest {
     }
 
     @Nested
+    @DisplayName("with startup edge cases should")
+    class StartupEdgeCases {
+
+        @Test
+        @DisplayName("evaluate an empty AND as VALID (identity of conjunction)")
+        void emptyAndIsValid() {
+            rule.setRules(List.of());
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
+
+            final var result = evaluationResult.status().join();
+
+            assertThat(result).isEqualTo(Result.VALID);
+            assertThat(evaluationResult.snapshot()).isEqualTo(buildRuleResult(ruleResultBuilder, Result.VALID));
+        }
+
+        @Test
+        @DisplayName("return the same future and not restart evaluation on repeated status() calls")
+        void repeatedStatusReturnsSameFuture() {
+            final var ruleOne = new MockRule("rule-1", Result.VALID);
+            final var ruleTwo = new MockRule("rule-2", Result.VALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            final var first = evaluationResult.status();
+            final var second = evaluationResult.status();
+
+            assertThat(first).isSameAs(second);
+            assertThat(first.join()).isEqualTo(Result.VALID);
+        }
+
+        @Test
+        @DisplayName("fire the completion action exactly once even across repeated status() calls")
+        void actionFiresExactlyOnceAcrossRepeatedStatus() {
+            final var ruleOne = new MockRule("rule-1", Result.VALID);
+            final var ruleTwo = new MockRule("rule-2", Result.VALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            var counter = new AtomicInteger(0);
+            rule.setAction(new Action().setOnCompletion((result, throwable, ruleResult) -> counter.getAndIncrement()));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.status().join();
+            evaluationResult.status().join();
+            evaluationResult.status().join();
+
+            assertThat(counter.get()).isEqualTo(1);
+        }
+    }
+
+    @Nested
     @DisplayName("with delayed rules should")
     class WithDelayedRulesTest {
 
