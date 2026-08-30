@@ -19,6 +19,7 @@ import java.util.concurrent.Executor;
 /**
  * A rule that checks if a fact is a date and compares it to a value.
  */
+@SuppressWarnings("this-escape")
 public class DateRule extends SingleValueRule<OffsetDateTime> {
 
     public DateRule() {

@@ -20,12 +20,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
 
 public class RuleDeserializer extends StdDeserializer<Rule> {
     private static final long serialVersionUID = -5996525917304371916L;
 
-    private final Map<String, Class<? extends Rule>> registry = new HashMap<>();
+    private final HashMap<String, Class<? extends Rule>> registry = new HashMap<>();
 
     RuleDeserializer() {
         super(Rule.class);
