@@ -22,6 +22,7 @@ import java.util.concurrent.Executor;
  *
  * @param <V> the {@link Number} type of the fact
  */
+@SuppressWarnings("this-escape")
 public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRule<V> {
 
     private final Comparator<V> comparator = new NumberComparator<>();

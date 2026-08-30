@@ -43,7 +43,7 @@ class EvaluatorTest {
     private class MockEvaluationResult implements EvaluationResult {
 
         @Override
-        public synchronized RuleResult snapshot() {
+        public RuleResult snapshot() {
             return ruleResult;
         }
 

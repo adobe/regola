@@ -40,6 +40,7 @@ public class RuleModule extends SimpleModule {
             .registerRule("NULL", NullRule.class)
             .registerRule("CONSTANT", ConstantRule.class);
 
+    @SuppressWarnings("this-escape")
     public RuleModule() {
         super("RuleModule");
         addDeserializer(Rule.class, deserializers);

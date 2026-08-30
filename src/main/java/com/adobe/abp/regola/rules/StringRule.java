@@ -19,6 +19,7 @@ import org.apache.commons.lang3.StringUtils;
 /**
  * A rule that checks a String fact against a String value.
  */
+@SuppressWarnings("this-escape")
 public class StringRule extends SingleValueRule<String> {
 
     public StringRule() {

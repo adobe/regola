@@ -25,6 +25,7 @@ import java.util.concurrent.Executor;
  * A rule that checks if a fact exists or not (it is null).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@SuppressWarnings("this-escape")
 public class ExistsRule extends KeyBasedRule {
 
     private final Executor executor;
