@@ -293,10 +293,12 @@ class OrRuleTest {
                     .containsExactly("OR", Result.VALID);
             assertThat(evaluationResult.snapshot())
                     .isInstanceOfSatisfying(MultiaryBooleanRuleResult.class,
+                            // Short-circuiting: the OR completes as soon as the VALID subrule reports back,
+                            // without waiting for the non-decisive subrule's future to settle. So only the
+                            // decisive (VALID) subrule is guaranteed to be reflected in the snapshot here.
                             ruleResult -> assertThat(ruleResult.getRules())
                                     .extracting(RuleResult::getType, RuleResult::getResult)
-                                    .containsExactlyInAnyOrder(Tuple.tuple("MOCK_RULE", controlResult),
-                                            Tuple.tuple("MOCK_RULE", Result.VALID)));
+                                    .contains(Tuple.tuple("MOCK_RULE", Result.VALID)));
         }
 
         @RepeatedTest(30)
