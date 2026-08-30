@@ -17,12 +17,14 @@ import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.UnaryBooleanRuleResult;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A rule that returns the inverse result of the subrule.
+ * A NOT with no operand rule is an invalid definition (there is no sensible value to invert), so it
+ * fails fast: {@code status()} completes exceptionally and {@code snapshot()} reports {@link Result#FAILED}.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@SuppressWarnings("this-escape")
 public class NotRule extends UnaryBooleanRule {
 
     public NotRule() {
@@ -36,64 +38,67 @@ public class NotRule extends UnaryBooleanRule {
 
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
-        return new EvaluationResult() {
+        return new LockingEvaluationResult() {
 
-            private Result result = Result.MAYBE;
-            private final CompletableFuture<Result> status = new CompletableFuture<>();
-            private EvaluationResult notResult;
+            // The evaluated operand, published once in startEvaluation() before its callback is wired up.
+            private volatile EvaluationResult notResult;
+
+            @Override
+            protected void startEvaluation() {
+                final Rule rule = getRule();
+                if (rule == null) {
+                    // A missing operand is malformed configuration, not an empty-operand identity case.
+                    completeExceptionally(new IllegalStateException("NOT rule requires a non-null operand rule"));
+                    return;
+                }
+
+                final EvaluationResult evaluationResult = rule.evaluate(factsResolver);
+                notResult = evaluationResult; // safe publication before the callback below can fire
+
+                final boolean ignore = rule.isIgnore();
+                evaluationResult.status()
+                        .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
+            }
+
+            private void evaluateSubresult(Result subresult, Throwable throwable, boolean ignore) {
+                if (!ignore && throwable != null) {
+                    // completeExceptionally() publishes Result.FAILED before the future transitions,
+                    // fixing the original ordering bug where a callback could observe MAYBE instead of FAILED.
+                    completeExceptionally(throwable);
+                    return;
+                }
+                decideUnderLock(() -> {
+                    if (ignore) {
+                        return Optional.of(Result.VALID); // an ignored subrule ⇒ VALID regardless of its result
+                    } else if (subresult == Result.VALID) {
+                        return Optional.of(Result.INVALID);
+                    } else if (subresult == Result.INVALID) {
+                        return Optional.of(Result.VALID);
+                    }
+                    // FAILED / OPERATION_NOT_SUPPORTED / MAYBE pass through unchanged
+                    return Optional.of(subresult);
+                });
+            }
+
+            @Override
+            protected void afterCompletion(Result completedResult, Throwable throwable) {
+                Optional.ofNullable(getAction())
+                        .ifPresent(action -> action.onCompletion(completedResult, throwable, snapshot()));
+            }
 
             @Override
             public RuleResult snapshot() {
+                final EvaluationResult capturedNotResult = notResult;
+                final Result capturedResult = getResult();
                 return UnaryBooleanRuleResult.builder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
-                    r.result = result;
-                    r.rule = Optional.ofNullable(notResult)
+                    r.result = capturedResult;
+                    r.rule = Optional.ofNullable(capturedNotResult)
                             .map(EvaluationResult::snapshot)
                             .orElse(null);
                     r.ignored = isIgnore();
                 }).build();
-            }
-
-            @Override
-            public CompletableFuture<Result> status() {
-                notResult = Optional.ofNullable(getRule())
-                        .map(this::evaluateRule)
-                        .orElse(null);
-                return status
-                        .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
-            }
-
-            private EvaluationResult evaluateRule(Rule rule) {
-                final var evaluationResult = rule.evaluate(factsResolver);
-                evaluationResult.status()
-                        .whenComplete((result, throwable) -> evaluateSubresult(result, throwable, rule.isIgnore()));
-                return evaluationResult;
-            }
-
-            private synchronized void evaluateSubresult(Result subresult, Throwable throwable, boolean ignore) {
-                if (!status.isDone()) {
-                    if (!ignore && throwable != null) {
-                        status.completeExceptionally(throwable);
-                        result = Result.FAILED;
-                    } else if (ignore) {
-                        // Whatever the subresult, mark this as VALID
-                        result = Result.VALID;
-                        status.complete(result);
-                    } else if (subresult == Result.FAILED ||
-                            subresult == Result.OPERATION_NOT_SUPPORTED ||
-                            subresult == Result.MAYBE) {
-                        result = subresult;
-                        status.complete(result);
-                    } else if (subresult == Result.VALID) {
-                        result = Result.INVALID;
-                        status.complete(result);
-                    } else if (subresult == Result.INVALID) {
-                        result = Result.VALID;
-                        status.complete(result);
-                    }
-                }
             }
         };
     }
