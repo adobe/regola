@@ -19,7 +19,9 @@ import com.adobe.abp.regola.rules.EvaluationResult;
 import com.adobe.abp.regola.rules.KeyBasedRule;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.ReentrantLock;
 
+@SuppressWarnings("this-escape")
 public class ExceptionRule extends KeyBasedRule {
 
     public ExceptionRule(String key) {
@@ -30,22 +32,33 @@ public class ExceptionRule extends KeyBasedRule {
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
+            private final ReentrantLock lock = new ReentrantLock();
             private Result result = Result.MAYBE;
 
             @Override
-            public synchronized RuleResult snapshot() {
-                return ValuesRuleResult.builder().with(r -> {
-                    r.type = getType();
-                    r.key = getKey();
-                    r.result = result;
-                    r.ignored = isIgnore();
-                }).build();
+            public RuleResult snapshot() {
+                lock.lock();
+                try {
+                    return ValuesRuleResult.builder().with(r -> {
+                        r.type = getType();
+                        r.key = getKey();
+                        r.result = result;
+                        r.ignored = isIgnore();
+                    }).build();
+                } finally {
+                    lock.unlock();
+                }
             }
 
             @Override
             public CompletableFuture<Result> status() {
                 return CompletableFuture.supplyAsync(() -> {
-                    result = Result.FAILED;
+                    lock.lock();
+                    try {
+                        result = Result.FAILED;
+                    } finally {
+                        lock.unlock();
+                    }
                     throw new RuntimeException("Intentionally failing this rule with an exception");
                 });
             }
@@ -53,4 +66,3 @@ public class ExceptionRule extends KeyBasedRule {
 
     }
 }
-
