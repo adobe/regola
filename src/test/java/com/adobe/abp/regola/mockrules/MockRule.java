@@ -19,7 +19,9 @@ import com.adobe.abp.regola.rules.EvaluationResult;
 import com.adobe.abp.regola.rules.KeyBasedRule;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.ReentrantLock;
 
+@SuppressWarnings("this-escape")
 public class MockRule extends KeyBasedRule {
 
     private Result finalResult;
@@ -37,23 +39,34 @@ public class MockRule extends KeyBasedRule {
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
+            private final ReentrantLock lock = new ReentrantLock();
             private Result result = Result.MAYBE;
 
             @Override
-            public synchronized RuleResult snapshot() {
-                return ValuesRuleResult.builder().with(r -> {
-                    r.type = getType();
-                    r.key = getKey();
-                    r.result = result;
-                    r.ignored = isIgnore();
-                }).build();
+            public RuleResult snapshot() {
+                lock.lock();
+                try {
+                    return ValuesRuleResult.builder().with(r -> {
+                        r.type = getType();
+                        r.key = getKey();
+                        r.result = result;
+                        r.ignored = isIgnore();
+                    }).build();
+                } finally {
+                    lock.unlock();
+                }
             }
 
             @Override
             public CompletableFuture<Result> status() {
                 return CompletableFuture.supplyAsync(() -> {
-                    result = finalResult;
-                    return result;
+                    lock.lock();
+                    try {
+                        result = finalResult;
+                        return result;
+                    } finally {
+                        lock.unlock();
+                    }
                 });
             }
         };

@@ -19,7 +19,9 @@ import com.adobe.abp.regola.rules.EvaluationResult;
 import com.adobe.abp.regola.rules.KeyBasedRule;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.ReentrantLock;
 
+@SuppressWarnings("this-escape")
 public class DelayedRule extends KeyBasedRule {
 
     private final Result finalResult;
@@ -35,16 +37,22 @@ public class DelayedRule extends KeyBasedRule {
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
+            private final ReentrantLock lock = new ReentrantLock();
             private Result result = Result.MAYBE;
 
             @Override
-            public synchronized RuleResult snapshot() {
-                return ValuesRuleResult.builder().with(r -> {
-                    r.type = getType();
-                    r.key = getKey();
-                    r.result = result;
-                    r.ignored = isIgnore();
-                }).build();
+            public RuleResult snapshot() {
+                lock.lock();
+                try {
+                    return ValuesRuleResult.builder().with(r -> {
+                        r.type = getType();
+                        r.key = getKey();
+                        r.result = result;
+                        r.ignored = isIgnore();
+                    }).build();
+                } finally {
+                    lock.unlock();
+                }
             }
 
             @Override
@@ -52,8 +60,13 @@ public class DelayedRule extends KeyBasedRule {
                 return CompletableFuture.supplyAsync(() -> {
                     try {
                         Thread.sleep(delayMillis);
-                        result = finalResult;
-                        return result;
+                        lock.lock();
+                        try {
+                            result = finalResult;
+                            return result;
+                        } finally {
+                            lock.unlock();
+                        }
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
@@ -63,4 +76,3 @@ public class DelayedRule extends KeyBasedRule {
 
     }
 }
-
