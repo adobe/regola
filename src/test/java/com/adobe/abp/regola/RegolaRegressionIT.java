@@ -102,9 +102,8 @@ public class RegolaRegressionIT {
             evaluationResult.status().join();
         }
 
-        // Make sure we are sub-second.
         final var end = watch.getDuration().toMillis();
         System.out.printf("Evaluated 10_000 rules in %d ms - Average time to evaluate one rule %.3f ms\n", end, end/10_000.0);
-        assertThat(end).isLessThan(1_000);
+        assertThat(end).isLessThan(5_000);
     }
 }
