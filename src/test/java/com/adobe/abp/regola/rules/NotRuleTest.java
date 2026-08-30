@@ -20,6 +20,7 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.UnaryBooleanRuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 @DisplayName("Testing NotRule")
@@ -205,6 +207,60 @@ class NotRuleTest {
     }
 
     @Nested
+    @DisplayName("with startup edge cases should")
+    class StartupEdgeCases {
+
+        @Test
+        @DisplayName("fail fast (not hang) when the operand rule is missing")
+        void missingOperandFailsFast() {
+            // no rule.setRule(...) → getRule() is null
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
+
+            final var status = evaluationResult.status();
+            assertThat(status).failsWithin(Duration.ofMillis(50)); // proves it does not hang
+            assertThatThrownBy(status::join)
+                    .isInstanceOf(CompletionException.class)
+                    .hasRootCauseInstanceOf(IllegalStateException.class);
+
+            assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.FAILED);
+        }
+
+        @Test
+        @DisplayName("return the same future and not restart evaluation on repeated status() calls")
+        void repeatedStatusReturnsSameFuture() {
+            final var subrule = new MockRule("subrule", Result.INVALID);
+            rule.setRule(subrule);
+
+            final var evaluationResult = rule.evaluate(resolver);
+            final var first = evaluationResult.status();
+            final var second = evaluationResult.status();
+
+            assertThat(first).isSameAs(second);
+            assertThat(first.join()).isEqualTo(Result.VALID);
+        }
+
+        @Test
+        @DisplayName("fire the completion action exactly once even across repeated status() calls")
+        void actionFiresExactlyOnceAcrossRepeatedStatus() {
+            final var subrule = new MockRule("subrule", Result.INVALID);
+            rule.setRule(subrule);
+
+            var counter = new AtomicInteger(0);
+            rule.setAction(new Action().setOnCompletion((result, throwable, ruleResult) -> counter.getAndIncrement()));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.status().join();
+            evaluationResult.status().join();
+            evaluationResult.status().join();
+
+            assertThat(counter.get()).isEqualTo(1);
+        }
+    }
+
+    @Nested
     @DisplayName("with delayed rule should")
     class WithDelayedRuleTest {
 
@@ -251,6 +307,25 @@ class NotRuleTest {
                             ruleResult -> assertThat(ruleResult.getRule())
                                     .extracting(RuleResult::getType, RuleResult::getResult)
                                     .containsExactly("EXCEPTION_RULE", Result.FAILED));
+        }
+
+        @Test
+        @DisplayName("expose FAILED (not MAYBE) from a completion callback when the subrule throws")
+        void snapshotReflectsFailedFromCompletionCallback() {
+            final var subrule = new ExceptionRule("rule-2");
+            rule.setRule(subrule);
+
+            final var evaluationResult = rule.evaluate(resolver);
+            final var resultAtCallback = new AtomicReference<Result>();
+
+            // The probe future completes only after our whenComplete callback has run, so observing
+            // its completion guarantees the callback ran — no race on reading resultAtCallback.
+            final var probe = evaluationResult.status()
+                    .whenComplete((r, t) -> resultAtCallback.set(evaluationResult.snapshot().getResult()));
+
+            assertThat(probe).failsWithin(Duration.ofMillis(50));
+
+            assertThat(resultAtCallback.get()).isEqualTo(Result.FAILED);
         }
 
         @Test
