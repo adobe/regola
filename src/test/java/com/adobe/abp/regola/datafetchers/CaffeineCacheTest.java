@@ -15,85 +15,239 @@ import com.adobe.abp.regola.datafetchers.cache.CaffeineCache;
 import com.adobe.abp.regola.datafetchers.cache.DataCacheConfiguration;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.function.Predicate;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinWorkerThread;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-@ExtendWith(MockitoExtension.class)
 class CaffeineCacheTest {
-
-    @Mock
-    Predicate<String> testPredicate;
 
     @Test
     @DisplayName("should supply cache value when getting element for the first time")
-    void supplyCacheOnGetting() {
+    void returnsMappedValueOnCacheMiss() {
         CaffeineCache<Object> cache = new CaffeineCache<>(new DataCacheConfiguration());
 
-        final var cached = cache.get("foo", (k) -> CompletableFuture.supplyAsync(() -> k + "-async"));
+        final var cached = cache.get("foo", (k) -> CompletableFuture.completedFuture(k + "-async"));
 
         assertThat(cached)
-                .succeedsWithin(Duration.ofMillis(10))
+                .succeedsWithin(Duration.ofSeconds(1))
                 .isEqualTo("foo-async");
     }
 
     @Test
     @DisplayName("should get from value cache once stored already")
-    void getFromCacheOnceStored() {
+    void reusesCachedValueWithoutRemapping() {
         CaffeineCache<Object> cache = new CaffeineCache<>(new DataCacheConfiguration());
-        verifyNoInteractions(testPredicate);
+        AtomicInteger mappingInvocations = new AtomicInteger();
 
         cache.get("foo", (k) -> {
-            testPredicate.test(k);
-            return CompletableFuture.supplyAsync(() -> k + "-async");
+            mappingInvocations.incrementAndGet();
+            return CompletableFuture.completedFuture(k + "-async");
         });
 
-        verify(testPredicate).test("foo"); // called once
+        assertThat(mappingInvocations).hasValue(1);
 
         final var cached = cache.get("foo", (k) -> {
-            testPredicate.test(k);
-            return CompletableFuture.supplyAsync(() -> k + "-async");
+            mappingInvocations.incrementAndGet();
+            return CompletableFuture.completedFuture(k + "-async");
         });
         assertThat(cached)
-                .succeedsWithin(Duration.ofMillis(10))
+                .succeedsWithin(Duration.ofSeconds(1))
                 .isEqualTo("foo-async");
 
-        verify(testPredicate).test("foo"); // still called once
+        assertThat(mappingInvocations).hasValue(1);
     }
 
     @Test
-    @DisplayName("should handle failures")
-    void handlingFailures() {
-        CaffeineCache<Object> cache = new CaffeineCache<>(new DataCacheConfiguration());
+    @DisplayName("should return promptly while the mapped value is incomplete")
+    void returnPromptlyForIncompleteMappingFuture() {
+        CaffeineCache<String> cache = new CaffeineCache<>(new DataCacheConfiguration());
+        CompletableFuture<String> mappingFuture = new CompletableFuture<>();
 
-        final var cached = cache.get("foo", (k) -> CompletableFuture.failedFuture(new RuntimeException("Failing in test")));
+        CompletableFuture<String> cached = assertTimeoutPreemptively(
+                Duration.ofSeconds(1), () -> cache.get("foo", key -> mappingFuture));
+
+        assertThat(cached).isNotDone();
+
+        mappingFuture.complete("foo-async");
+        assertThat(cached)
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-async");
+    }
+
+    @Test
+    @DisplayName("should share an in-flight load between concurrent callers")
+    void singleFlightForConcurrentCallers() throws Exception {
+        CaffeineCache<String> cache = new CaffeineCache<>(new DataCacheConfiguration());
+        CompletableFuture<String> mappingFuture = new CompletableFuture<>();
+        AtomicInteger mappingInvocations = new AtomicInteger();
+        Function<String, CompletableFuture<String>> mappingFunction = key -> {
+            mappingInvocations.incrementAndGet();
+            return mappingFuture;
+        };
+        CountDownLatch callersReady = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        final var callers = Executors.newFixedThreadPool(2);
+
+        try {
+            final var firstCaller = callers.submit(() -> {
+                callersReady.countDown();
+                start.await();
+                return cache.get("foo", mappingFunction);
+            });
+            final var secondCaller = callers.submit(() -> {
+                callersReady.countDown();
+                start.await();
+                return cache.get("foo", mappingFunction);
+            });
+
+            assertThat(callersReady.await(1, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            CompletableFuture<String> first = firstCaller.get(1, TimeUnit.SECONDS);
+            CompletableFuture<String> second = secondCaller.get(1, TimeUnit.SECONDS);
+
+            assertThat(mappingInvocations).hasValue(1);
+            assertThat(first).isSameAs(second);
+
+            mappingFuture.complete("foo-async");
+            assertThat(first)
+                    .succeedsWithin(Duration.ofSeconds(1))
+                    .isEqualTo("foo-async");
+            assertThat(second)
+                    .succeedsWithin(Duration.ofSeconds(1))
+                    .isEqualTo("foo-async");
+        } finally {
+            start.countDown();
+            callers.shutdownNow();
+        }
+    }
+
+    @Test
+    @DisplayName("should propagate exceptional completion")
+    void propagateExceptionalCompletion() {
+        CaffeineCache<Object> cache = new CaffeineCache<>(new DataCacheConfiguration());
+        RuntimeException failure = new RuntimeException("Failing in test");
+
+        final var cached = cache.get("foo", (k) -> CompletableFuture.failedFuture(failure));
 
         assertThat(cached)
-                .failsWithin(Duration.ofMillis(10))
+                .failsWithin(Duration.ofSeconds(1))
                 .withThrowableOfType(ExecutionException.class)
-                .withCauseInstanceOf(RuntimeException.class);
+                .withCause(failure);
+    }
+
+    @Test
+    @DisplayName("should retry a load once Caffeine evicts an exceptional completion")
+    void retryAfterExceptionalCompletionIsEvicted() throws InterruptedException {
+        CaffeineCache<String> cache = new CaffeineCache<>(new DataCacheConfiguration());
+        AtomicInteger mappingInvocations = new AtomicInteger();
+        RuntimeException failure = new RuntimeException("Failing in test");
+
+        final var failed = cache.get("foo", key -> {
+            mappingInvocations.incrementAndGet();
+            return CompletableFuture.failedFuture(failure);
+        });
+        assertThat(failed)
+                .failsWithin(Duration.ofSeconds(1))
+                .withThrowableOfType(ExecutionException.class)
+                .withCause(failure);
+
+        CompletableFuture<String> retried;
+        final long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+        do {
+            retried = cache.get("foo", key -> {
+                mappingInvocations.incrementAndGet();
+                return CompletableFuture.completedFuture(key + "-recovered");
+            });
+            if (mappingInvocations.get() == 1) {
+                Thread.sleep(10);
+            }
+        } while (mappingInvocations.get() == 1 && System.nanoTime() < deadlineNanos);
+
+        assertThat(retried)
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-recovered");
+        assertThat(mappingInvocations).hasValue(2);
+    }
+
+    @Test
+    @DisplayName("should invoke mapping function on Caffeine's default executor when none is configured")
+    void invokesMappingFunctionOnDefaultExecutor() {
+        CaffeineCache<Thread> cache = new CaffeineCache<>(new DataCacheConfiguration());
+
+        final var cached = cache.get("foo", key -> CompletableFuture.completedFuture(Thread.currentThread()));
+
+        assertThat(cached)
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isInstanceOf(ForkJoinWorkerThread.class);
     }
 
     @Test
     @DisplayName("should work with custom executor")
-    void getFromCacheWithCustomExecutor() {
+    void invokesMappingFunctionOnConfiguredExecutor() {
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable ->
+                new Thread(runnable, "caffeine-cache-test-executor"));
         DataCacheConfiguration configuration = new DataCacheConfiguration()
-                .setExecutor(Executors.newCachedThreadPool());
+                .setExecutor(executor);
         CaffeineCache<Object> cache = new CaffeineCache<>(configuration);
-        cache.get("foo", (k) -> CompletableFuture.supplyAsync(() -> k + "-async"));
 
-        final var cached = cache.get("foo", (k) -> CompletableFuture.supplyAsync(() -> k + "-async"));
-        assertThat(cached)
-                .succeedsWithin(Duration.ofMillis(10))
-                .isEqualTo("foo-async");
+        try {
+            final var cached = cache.get("foo", key -> CompletableFuture.completedFuture(
+                    Thread.currentThread().getName()));
+
+            assertThat(cached)
+                    .succeedsWithin(Duration.ofSeconds(1))
+                    .isEqualTo("caffeine-cache-test-executor");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    @DisplayName("should honor configured maximum cache size")
+    void honorMaximumCacheSize() {
+        DataCacheConfiguration configuration = new DataCacheConfiguration()
+                .setCacheSize(0)
+                .setExecutor(Runnable::run);
+        CaffeineCache<String> cache = new CaffeineCache<>(configuration);
+        AtomicInteger mappingInvocations = new AtomicInteger();
+        Function<String, CompletableFuture<String>> mappingFunction = key ->
+                CompletableFuture.completedFuture(key + "-" + mappingInvocations.incrementAndGet());
+
+        assertThat(cache.get("foo", mappingFunction))
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-1");
+        assertThat(cache.get("foo", mappingFunction))
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-2");
+    }
+
+    @Test
+    @DisplayName("should honor configured expiry")
+    void honorExpiry() {
+        DataCacheConfiguration configuration = new DataCacheConfiguration()
+                .setCacheExpireAfterMinutes(0)
+                .setExecutor(Runnable::run);
+        CaffeineCache<String> cache = new CaffeineCache<>(configuration);
+        AtomicInteger mappingInvocations = new AtomicInteger();
+        Function<String, CompletableFuture<String>> mappingFunction = key ->
+                CompletableFuture.completedFuture(key + "-" + mappingInvocations.incrementAndGet());
+
+        assertThat(cache.get("foo", mappingFunction))
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-1");
+        assertThat(cache.get("foo", mappingFunction))
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-2");
     }
 }

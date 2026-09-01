@@ -15,17 +15,12 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class CaffeineCache<V> implements DataCache<V> {
 
-    private static final Logger LOG = Logger.getLogger(CaffeineCache.class.getName());
-
-    private final transient AsyncCache<String, CompletableFuture<V>> cache;
+    private final transient AsyncCache<String, V> cache;
 
     public CaffeineCache(DataCacheConfiguration configuration) {
         final var builder = Caffeine.newBuilder()
@@ -40,12 +35,8 @@ public class CaffeineCache<V> implements DataCache<V> {
 
     @Override
     public CompletableFuture<V> get(String key, Function<String, CompletableFuture<V>> mappingFunction) {
-        try {
-            return cache.get(key, mappingFunction).get();
-        } catch (InterruptedException | ExecutionException e) {
-            LOG.log(Level.SEVERE, String.format("Data for requestKey=%s could not be fetched due to exception=%s",
-                    key, e.getMessage()));
-            return CompletableFuture.failedFuture(e);
-        }
+        return cache.get(key, (cacheKey, executor) -> CompletableFuture
+                .supplyAsync(() -> mappingFunction.apply(cacheKey), executor)
+                .thenCompose(Function.identity()));
     }
 }
