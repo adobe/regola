@@ -12,6 +12,7 @@
 package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.results.Result;
+import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.Set;
@@ -83,7 +84,9 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
         );
     }
 
-    static class NumberComparator<T extends Number & Comparable<T>> implements Comparator<T> {
+    static class NumberComparator<T extends Number & Comparable<T>> implements Comparator<T>, Serializable {
+        private static final long serialVersionUID = 1L;
+
         public int compare(T a, T b) throws ClassCastException {
             if (Objects.equals(a, b)) {
                 return 0;
@@ -95,13 +98,7 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
                 return a.compareTo(b);
             } else {
                 // Do the best we can if types do not match
-                double comparison = a.doubleValue() - b.doubleValue();
-                if (comparison < 0) {
-                    return -1;
-                } else if (comparison > 0) {
-                    return 1;
-                }
-                return 0;
+                return Double.compare(a.doubleValue(), b.doubleValue());
             }
         }
     }
