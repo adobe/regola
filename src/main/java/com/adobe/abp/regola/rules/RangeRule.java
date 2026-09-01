@@ -115,6 +115,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
             case IS_AFTER:
                 values.add(max);
                 break;
+            default:
+                break;
         }
 
         values.removeIf(Objects::isNull);
