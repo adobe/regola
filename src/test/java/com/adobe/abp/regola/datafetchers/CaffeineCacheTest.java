@@ -22,11 +22,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 class CaffeineCacheTest {
@@ -49,10 +51,13 @@ class CaffeineCacheTest {
         CaffeineCache<Object> cache = new CaffeineCache<>(new DataCacheConfiguration());
         AtomicInteger mappingInvocations = new AtomicInteger();
 
-        cache.get("foo", (k) -> {
+        final var first = cache.get("foo", (k) -> {
             mappingInvocations.incrementAndGet();
             return CompletableFuture.completedFuture(k + "-async");
         });
+        assertThat(first)
+                .succeedsWithin(Duration.ofSeconds(1))
+                .isEqualTo("foo-async");
 
         assertThat(mappingInvocations).hasValue(1);
 
@@ -148,7 +153,7 @@ class CaffeineCacheTest {
 
     @Test
     @DisplayName("should retry a load once Caffeine evicts an exceptional completion")
-    void retryAfterExceptionalCompletionIsEvicted() throws InterruptedException {
+    void retryAfterExceptionalCompletionIsEvicted() {
         CaffeineCache<String> cache = new CaffeineCache<>(new DataCacheConfiguration());
         AtomicInteger mappingInvocations = new AtomicInteger();
         RuntimeException failure = new RuntimeException("Failing in test");
@@ -162,22 +167,20 @@ class CaffeineCacheTest {
                 .withThrowableOfType(ExecutionException.class)
                 .withCause(failure);
 
-        CompletableFuture<String> retried;
-        final long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
-        do {
-            retried = cache.get("foo", key -> {
-                mappingInvocations.incrementAndGet();
-                return CompletableFuture.completedFuture(key + "-recovered");
-            });
-            if (mappingInvocations.get() == 1) {
-                Thread.sleep(10);
-            }
-        } while (mappingInvocations.get() == 1 && System.nanoTime() < deadlineNanos);
+        AtomicReference<CompletableFuture<String>> retried = new AtomicReference<>();
+        await().atMost(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofMillis(10))
+                .untilAsserted(() -> {
+                    retried.set(cache.get("foo", key -> {
+                        mappingInvocations.incrementAndGet();
+                        return CompletableFuture.completedFuture(key + "-recovered");
+                    }));
+                    assertThat(mappingInvocations).hasValue(2);
+                });
 
-        assertThat(retried)
+        assertThat(retried.get())
                 .succeedsWithin(Duration.ofSeconds(1))
                 .isEqualTo("foo-recovered");
-        assertThat(mappingInvocations).hasValue(2);
     }
 
     @Test
