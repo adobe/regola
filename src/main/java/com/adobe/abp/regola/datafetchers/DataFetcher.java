@@ -89,6 +89,11 @@ public abstract class DataFetcher<D, C extends Context> {
     /**
      * Fetch data from a data source
      *
+     * <p>Implementations should return promptly whenever practical, placing blocking or
+     * long-running work in the returned future. A caller can use a resolver executor, such as the
+     * executor accepted by {@link com.adobe.abp.regola.facts.SimpleFactsResolver}, to isolate
+     * unavoidable synchronous work performed before this method returns.</p>
+     *
      * @param context used to fetch the data
      * @return some optional data of type D
      */
@@ -109,6 +114,10 @@ public abstract class DataFetcher<D, C extends Context> {
 
     /**
      * Fetch data for the given context
+     *
+     * <p>Request-key calculation and cache access occur synchronously before this method returns
+     * the fetch future. {@link com.adobe.abp.regola.facts.SimpleFactsResolver} can isolate that
+     * work when constructed with an executor.</p>
      *
      * @param context used to fetch the data
      * @return completable future of data of type D
