@@ -37,10 +37,22 @@ public class DataCacheConfiguration {
         return this;
     }
 
+    /**
+     * Returns the executor that {@link CaffeineCache} uses to invoke a mapping function on a cache miss.
+     *
+     * @return the mapping-function executor, or {@code null} to use Caffeine's default executor
+     */
     public Executor getExecutor() {
         return executor;
     }
 
+    /**
+     * Sets the executor that {@link CaffeineCache} uses to invoke a mapping function on a cache miss.
+     * The returned future is not executed on this executor unless the mapping function arranges that itself.
+     *
+     * @param executor the mapping-function executor, or {@code null} to use Caffeine's default executor
+     * @return this configuration
+     */
     public DataCacheConfiguration setExecutor(Executor executor) {
         this.executor = executor;
         return this;
