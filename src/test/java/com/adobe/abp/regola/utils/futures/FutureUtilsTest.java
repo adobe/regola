@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.utils.futures;
 
+import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -19,6 +20,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +28,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FutureUtilsTest {
+
+    @Test
+    @DisplayName("be a final class since its constructor always throws")
+    void isFinal() {
+        // A class with a throwing constructor must be final: otherwise a subclass could
+        // still be created without ever invoking the throwing constructor's body via
+        // finalizer-attack style tricks, defeating the "do not instantiate" guarantee.
+        assertThat(Modifier.isFinal(FutureUtils.class.getModifiers())).isTrue();
+    }
 
     @Nested
     class FlatHandle {

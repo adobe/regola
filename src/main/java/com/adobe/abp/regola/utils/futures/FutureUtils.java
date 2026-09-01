@@ -20,7 +20,7 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-public class FutureUtils {
+public final class FutureUtils {
 
     private FutureUtils() {
         throw new IllegalAccessError("Do not instantiate");
