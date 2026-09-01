@@ -13,6 +13,7 @@ package com.adobe.abp.regola.facts;
 
 import com.adobe.abp.regola.datafetchers.Context;
 import com.adobe.abp.regola.datafetchers.DataFetcher;
+import com.adobe.abp.regola.datafetchers.cache.DataCacheConfiguration;
 import com.adobe.abp.regola.utils.futures.FutureUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,6 +22,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
+/**
+ * A facts resolver backed by registered {@link DataFetcher data fetchers}.
+ *
+ * <p>When an executor is supplied, the complete {@link DataFetcher#fetch(Context)} invocation is
+ * run on that executor, including request-key calculation and cache access. Without an executor,
+ * fetch invocation remains on the thread calling {@link #resolveFact(String)}. The executor
+ * configured by {@link DataCacheConfiguration#setExecutor(Executor)} is used by the cache itself
+ * and does not provide this resolver-level isolation.</p>
+ *
+ * <p>The resolver does not own or close a caller-provided executor.</p>
+ *
+ * @param <C> context used by registered data fetchers
+ */
 public class SimpleFactsResolver<C extends Context> implements FactsResolver {
 
     private final C context;
@@ -29,16 +43,38 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
     private final transient Map<String, Function<Object, Object>> factFetchers = new LinkedHashMap<>();
     private final Executor executor;
 
+    /**
+     * Construct a resolver that invokes data fetchers directly on the calling thread.
+     *
+     * @param context context supplied to registered data fetchers
+     * @param dataFetchers data fetchers keyed by data source
+     */
     public SimpleFactsResolver(C context, Map<DataSource, DataFetcher<?, C>> dataFetchers) {
         this(context, dataFetchers, null);
     }
 
+    /**
+     * Construct a resolver with optional executor isolation for fact resolution.
+     *
+     * <p>When non-null, {@code executor} runs the complete data-fetcher invocation and fact
+     * extraction that does not use a data fetcher. It is distinct from
+     * {@link DataCacheConfiguration#getExecutor()}, which configures cache work only. The caller
+     * retains ownership of the executor and is responsible for its lifecycle.</p>
+     *
+     * @param context context supplied to registered data fetchers
+     * @param dataFetchers data fetchers keyed by data source
+     * @param executor executor used to isolate fact resolution, or {@code null} to invoke data
+     *                 fetchers directly on the calling thread
+     */
     public SimpleFactsResolver(C context, Map<DataSource, DataFetcher<?, C>> dataFetchers, Executor executor) {
         this.context = context;
         this.dataFetchers = dataFetchers;
         this.executor = executor;
     }
 
+    /**
+     * Construct an empty resolver.
+     */
     public SimpleFactsResolver() {
         this(null, Map.of());
     }
@@ -55,7 +91,7 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
         final var dataSource = dataSourcesMap.getOrDefault(key, StandardDataSources.NONE);
         final var dataFetcher = dataFetchers.get(dataSource);
         if (dataFetcher != null) {
-            return dataFetcher.fetch(context)
+            return fetch(dataFetcher)
                     .thenApply(data -> factFetchers.get(key).apply(data));
         } else {
             // If we cannot find a data fetcher, then attempt to solve the Fact using only the factFetcher with a null data object
@@ -65,5 +101,14 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
                             .map(fetcher -> fetcher.apply(null))
                             .orElse(null), executor);
         }
+    }
+
+    private CompletableFuture<?> fetch(DataFetcher<?, C> dataFetcher) {
+        if (executor == null) {
+            return dataFetcher.fetch(context);
+        }
+
+        return FutureUtils.supplyAsync(() -> dataFetcher.fetch(context), executor)
+                .thenCompose(Function.identity());
     }
 }

@@ -12,7 +12,13 @@
 package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.actions.Action;
+import com.adobe.abp.regola.datafetchers.Context;
+import com.adobe.abp.regola.datafetchers.DataFetcher;
+import com.adobe.abp.regola.facts.DataSource;
+import com.adobe.abp.regola.facts.Fact;
 import com.adobe.abp.regola.facts.FactsResolver;
+import com.adobe.abp.regola.facts.SimpleFactsResolver;
+import com.adobe.abp.regola.mockdatafetchers.BlockingBeforeFutureDataFetcher;
 import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
 import com.adobe.abp.regola.mockrules.MockRule;
@@ -20,6 +26,15 @@ import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.assertj.core.groups.Tuple;
@@ -30,10 +45,6 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -46,6 +57,11 @@ class AndRuleTest {
     private MultiaryBooleanRuleResult.RuleResultBuilder ruleResultBuilder;
 
     private final FactsResolver resolver = mock(FactsResolver.class);
+
+    private enum BlockingDataSources implements DataSource {
+        FIRST,
+        SECOND
+    }
 
     @BeforeEach
     void setup() {
@@ -78,6 +94,65 @@ class AndRuleTest {
             r.result = result;
             r.rules = Set.of();
         }).build();
+    }
+
+    @Nested
+    @DisplayName("with synchronously blocking data fetchers should")
+    class WithSynchronouslyBlockingDataFetchersTest {
+
+        @Test
+        @DisplayName("start independent fetches concurrently when the facts resolver has a concurrent executor")
+        void startsIndependentFetchesConcurrently() throws InterruptedException {
+            final var fetchesStarted = new CountDownLatch(2);
+            final var releaseFetches = new CountDownLatch(1);
+            final ExecutorService resolverExecutor = Executors.newFixedThreadPool(2);
+            final ExecutorService evaluationExecutor = Executors.newSingleThreadExecutor();
+
+            try {
+                final Context context = new Context() {
+                };
+                final Map<DataSource, DataFetcher<?, Context>> dataFetchers = Map.of(
+                        BlockingDataSources.FIRST,
+                        new BlockingBeforeFutureDataFetcher(
+                                "first-request", "first-value", fetchesStarted, releaseFetches),
+                        BlockingDataSources.SECOND,
+                        new BlockingBeforeFutureDataFetcher(
+                                "second-request", "second-value", fetchesStarted, releaseFetches)
+                );
+                final var factsResolver = new SimpleFactsResolver<>(
+                        context, dataFetchers, resolverExecutor);
+                factsResolver.addFact(new Fact<>(
+                        "first-fact", BlockingDataSources.FIRST, data -> data));
+                factsResolver.addFact(new Fact<>(
+                        "second-fact", BlockingDataSources.SECOND, data -> data));
+
+                rule.setRules(List.of(
+                        new StringRule("first-fact", Operator.EQUALS, "first-value"),
+                        new StringRule("second-fact", Operator.EQUALS, "second-value")
+                ));
+
+                final CompletableFuture<Result> evaluation = CompletableFuture.supplyAsync(
+                        () -> rule.evaluate(factsResolver).status().join(),
+                        evaluationExecutor);
+
+                try {
+                    assertThat(fetchesStarted.await(5, TimeUnit.SECONDS)).isTrue();
+                } finally {
+                    releaseFetches.countDown();
+                }
+
+                assertThat(evaluation.join()).isEqualTo(Result.VALID);
+            } finally {
+                releaseFetches.countDown();
+                shutdown(evaluationExecutor);
+                shutdown(resolverExecutor);
+            }
+        }
+
+        private void shutdown(ExecutorService executor) throws InterruptedException {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Nested
