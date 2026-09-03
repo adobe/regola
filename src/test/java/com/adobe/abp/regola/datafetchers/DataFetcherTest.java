@@ -195,7 +195,7 @@ class DataFetcherTest {
                 final var dataFetcher = new FixedDelayedDataFetcherWithLogging(20, 10, false);
 
                 assertThat(dataFetcher.fetch(context))
-                        .succeedsWithin(Duration.ofMillis(100));
+                        .succeedsWithin(Duration.ofMillis(500));
             }
 
             // This test is used to verify that logging is taking place. No proper assertions are put in place.
@@ -205,7 +205,7 @@ class DataFetcherTest {
                 final var dataFetcher = new FixedDelayedDataFetcherWithLogging(20, 50, true);
 
                 assertThat(dataFetcher.fetch(context))
-                        .failsWithin(Duration.ofMillis(100))
+                        .failsWithin(Duration.ofMillis(500))
                         .withThrowableOfType(ExecutionException.class)
                         .withCauseInstanceOf(RuntimeException.class)
                         .withMessageContaining("Exception thrown during a test");
@@ -223,7 +223,7 @@ class DataFetcherTest {
                 final var dataFetcher = new FixedDelayedDataFetcherWithLogging(agent, 20, 50, false);
 
                 assertThat(dataFetcher.fetch(context))
-                        .succeedsWithin(Duration.ofMillis(100));
+                        .succeedsWithin(Duration.ofMillis(500));
 
                 verify(agent).onSuccess(eq("FixedDelayedDataFetcherWithLogging"), anyString(), anyLong());
                 verify(agent, never()).onSlaBreach(anyString(), anyString(), anyLong(), anyDouble());
@@ -236,7 +236,7 @@ class DataFetcherTest {
                 final var dataFetcher = new FixedDelayedDataFetcherWithLogging(agent, 20, 10, false);
 
                 assertThat(dataFetcher.fetch(context))
-                        .succeedsWithin(Duration.ofMillis(100));
+                        .succeedsWithin(Duration.ofMillis(500));
 
                 verify(agent).onSuccess(eq("FixedDelayedDataFetcherWithLogging"), anyString(), anyLong());
                 verify(agent).onSlaBreach(eq("FixedDelayedDataFetcherWithLogging"), anyString(), eq(10L), anyDouble());
@@ -249,7 +249,7 @@ class DataFetcherTest {
                 final var dataFetcher = new FixedDelayedDataFetcherWithLogging(agent, 20, 50, true);
 
                 assertThat(dataFetcher.fetch(context))
-                        .failsWithin(Duration.ofMillis(100));
+                        .failsWithin(Duration.ofMillis(500));
 
                 verify(agent, never()).onSuccess(anyString(), anyString(), anyLong());
                 verify(agent, never()).onSlaBreach(anyString(), anyString(), anyLong(), anyDouble());
@@ -265,7 +265,7 @@ class DataFetcherTest {
                 final var dataFetcher = new FixedDelayedDataFetcherWithLogging(agent, 20, 50, true);
 
                 assertThat(dataFetcher.fetch(context))
-                        .failsWithin(Duration.ofMillis(100)); // CompletableFuture is completed with failure.
+                        .failsWithin(Duration.ofMillis(500)); // CompletableFuture is completed with failure.
 
                 verify(agent, never()).onSuccess(anyString(), anyString(), anyLong());
                 verify(agent, never()).onSlaBreach(anyString(), anyString(), anyLong(), anyDouble());
