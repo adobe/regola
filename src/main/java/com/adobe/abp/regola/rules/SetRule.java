@@ -25,7 +25,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.commons.collections4.CollectionUtils;
 
-// TODO - add tests for integer, doubles, dates types
 /**
  * This rule checks that a fact is contained in a set of values.
  * <p>
