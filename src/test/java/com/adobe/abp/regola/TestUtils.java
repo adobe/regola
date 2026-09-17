@@ -15,9 +15,34 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.io.IOUtils;
 
 public class TestUtils {
+
+    /**
+     * A dedicated, uncapped executor for test-only mock rules/data-fetchers that simulate delays
+     * with real {@code Thread.sleep}. Using {@link java.util.concurrent.ForkJoinPool#commonPool()}
+     * (the default for {@code CompletableFuture.supplyAsync}) ties timing tests to the number of
+     * CPU cores available (parallelism = cores - 1, minimum 1) and to contention from every other
+     * test in the suite submitting work to that same shared pool. On cheap/low-core or busy CI
+     * machines this can starve the common pool and make time-bound assertions (e.g. succeedsWithin/
+     * failsWithin) flaky even though the simulated delay itself is small. Using a dedicated,
+     * cached thread pool decouples these timing tests from that shared, size-limited resource.
+     */
+    public static final Executor DELAY_EXECUTOR = Executors.newCachedThreadPool(new ThreadFactory() {
+        private final AtomicInteger counter = new AtomicInteger();
+
+        @Override
+        public Thread newThread(Runnable r) {
+            final var thread = new Thread(r, "test-delay-executor-" + counter.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        }
+    });
 
     public static <T> String readRules(Class<T> clazz, String filename) throws IOException {
         try (InputStream s = clazz.getResourceAsStream(filename)) {

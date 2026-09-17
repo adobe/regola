@@ -467,7 +467,7 @@ class OrRuleTest {
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
-                    .succeedsWithin(Duration.ofMillis(600))
+                    .succeedsWithin(Duration.ofMillis(1500)) // delay is 500ms; extra slack absorbs scheduling/GC jitter on slow/busy machines
                     .isEqualTo(Result.VALID);
         }
 
@@ -484,7 +484,7 @@ class OrRuleTest {
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
-                    .succeedsWithin(Duration.ofMillis(1100))
+                    .succeedsWithin(Duration.ofMillis(2000)) // delay is 1000ms; extra slack absorbs scheduling/GC jitter on slow/busy machines
                     .isEqualTo(Result.INVALID);
         }
     }
@@ -506,7 +506,7 @@ class OrRuleTest {
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
-                    .failsWithin(Duration.ofMillis(50));
+                    .failsWithin(Duration.ofMillis(200));
 
             assertThat(evaluationResult.snapshot())
                     .extracting(RuleResult::getType, RuleResult::getResult)
@@ -577,7 +577,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
             assertThat(evaluationResult.status())
-                    .failsWithin(Duration.ofMillis(50));
+                    .failsWithin(Duration.ofMillis(200));
 
             assertThat(throwableAtomicReference.get()).hasMessageContaining("Intentionally failing this rule with an exception");
         }

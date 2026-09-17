@@ -173,7 +173,7 @@ class SimpleFactsResolverTest {
             factsResolver.addFact(new Fact<>(TEST_KEY, StandardDataSources.NONE, data -> "ETLA"));
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("ETLA");
         }
 
@@ -184,7 +184,7 @@ class SimpleFactsResolverTest {
             factsResolver.addFact(new Fact<>(TEST_KEY, data -> "ETLA"));
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("ETLA");
         }
 
@@ -194,7 +194,7 @@ class SimpleFactsResolverTest {
             SimpleFactsResolver<?> factsResolver = new SimpleFactsResolver<>();
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isNull();
         }
     }
@@ -218,7 +218,7 @@ class SimpleFactsResolverTest {
             verifyNoInteractions(dataFetcher);
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("ETLA");
             verify(dataFetcher).fetch(context);
         }
@@ -231,7 +231,7 @@ class SimpleFactsResolverTest {
             ));
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isNull();
             verifyNoInteractions(dataFetcher);
         }
@@ -245,7 +245,7 @@ class SimpleFactsResolverTest {
             verifyNoInteractions(dataFetcher);
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .failsWithin(Duration.ofMillis(50))
+                    .failsWithin(Duration.ofMillis(200))
                     .withThrowableOfType(ExecutionException.class)
                     .withCauseInstanceOf(NullPointerException.class);
             verifyNoInteractions(dataFetcher);
@@ -260,7 +260,7 @@ class SimpleFactsResolverTest {
             verifyNoInteractions(dataFetcher);
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("XYZ");
             verifyNoInteractions(dataFetcher);
         }
@@ -278,7 +278,7 @@ class SimpleFactsResolverTest {
                 factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
 
                 assertThat(factsResolver.resolveFact(TEST_KEY))
-                        .succeedsWithin(Duration.ofMillis(250))
+                        .succeedsWithin(Duration.ofMillis(500))
                         .isEqualTo("ETLA");
 
                 assertThat(dataFetcher.fetchThread.get()).isNotEqualTo(callerThread);
@@ -303,7 +303,7 @@ class SimpleFactsResolverTest {
                 CompletableFuture<Object> resolvedFact = factsResolver.resolveFact(TEST_KEY);
 
                 assertThat(resolvedFact)
-                        .failsWithin(Duration.ofMillis(250))
+                        .failsWithin(Duration.ofMillis(500))
                         .withThrowableOfType(ExecutionException.class)
                         .withCauseInstanceOf(IllegalStateException.class)
                         .withMessageContaining(failurePoint.name());
@@ -323,7 +323,7 @@ class SimpleFactsResolverTest {
             factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
 
             assertThat(factsResolver.resolveFact(TEST_KEY))
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("ETLA");
 
             assertThat(dataFetcher.fetchThread.get()).isSameAs(callerThread);

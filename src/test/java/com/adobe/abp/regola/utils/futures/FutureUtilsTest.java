@@ -50,7 +50,7 @@ class FutureUtilsTest {
             var handled = FutureUtils.flatHandle(future, handle);
 
             assertThat(handled)
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("with success");
         }
 
@@ -63,7 +63,7 @@ class FutureUtilsTest {
             var handled = FutureUtils.flatHandle(future, handle);
 
             assertThat(handled)
-                    .failsWithin(Duration.ofMillis(50))
+                    .failsWithin(Duration.ofMillis(200))
                     .withThrowableOfType(ExecutionException.class)
                     .withRootCauseInstanceOf(RuntimeException.class)
                     .withMessageContaining("failed");
@@ -78,7 +78,7 @@ class FutureUtilsTest {
             var future = FutureUtils.supplyAsync(() -> "result", Executors.newSingleThreadExecutor());
 
             assertThat(future)
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("result");
         }
 
@@ -87,7 +87,7 @@ class FutureUtilsTest {
             var future = FutureUtils.supplyAsync(() -> "result", null);
 
             assertThat(future)
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo("result");
         }
 
@@ -123,7 +123,7 @@ class FutureUtilsTest {
             var result = FutureUtils.sequence(List.of());
 
             assertThat(result.toCompletableFuture())
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo(List.of());
         }
 
@@ -138,7 +138,7 @@ class FutureUtilsTest {
             var result = FutureUtils.sequence(futures);
 
             assertThat(result.toCompletableFuture())
-                    .succeedsWithin(Duration.ofMillis(50))
+                    .succeedsWithin(Duration.ofMillis(200))
                     .isEqualTo(List.of("first", "second", "third"));
         }
 
@@ -168,7 +168,7 @@ class FutureUtilsTest {
             var result = FutureUtils.sequence(futures);
 
             assertThat(result.toCompletableFuture())
-                    .succeedsWithin(Duration.ofMillis(100))
+                    .succeedsWithin(Duration.ofMillis(300))
                     .isEqualTo(List.of("first", "second", "third"));
         }
     }

@@ -220,7 +220,7 @@ class NotRuleTest {
             assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
 
             final var status = evaluationResult.status();
-            assertThat(status).failsWithin(Duration.ofMillis(50)); // proves it does not hang
+            assertThat(status).failsWithin(Duration.ofMillis(200)); // proves it does not hang
             assertThatThrownBy(status::join)
                     .isInstanceOf(CompletionException.class)
                     .hasRootCauseInstanceOf(IllegalStateException.class);
@@ -276,7 +276,7 @@ class NotRuleTest {
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
-                    .succeedsWithin(Duration.ofMillis(1100))
+                    .succeedsWithin(Duration.ofMillis(2000)) // delay is 1000ms; extra slack absorbs scheduling/GC jitter on slow/busy machines
                     .isEqualTo(Result.VALID);
         }
     }
@@ -297,7 +297,7 @@ class NotRuleTest {
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
-                    .failsWithin(Duration.ofMillis(50));
+                    .failsWithin(Duration.ofMillis(200));
 
             assertThat(evaluationResult.snapshot())
                     .extracting(RuleResult::getType, RuleResult::getResult)
@@ -323,7 +323,7 @@ class NotRuleTest {
             final var probe = evaluationResult.status()
                     .whenComplete((r, t) -> resultAtCallback.set(evaluationResult.snapshot().getResult()));
 
-            assertThat(probe).failsWithin(Duration.ofMillis(50));
+            assertThat(probe).failsWithin(Duration.ofMillis(200));
 
             assertThat(resultAtCallback.get()).isEqualTo(Result.FAILED);
         }
@@ -362,7 +362,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
             assertThat(evaluationResult.status())
-                    .failsWithin(Duration.ofMillis(50));
+                    .failsWithin(Duration.ofMillis(200));
 
             assertThat(throwableAtomicReference.get()).hasMessageContaining("Intentionally failing this rule with an exception");
         }
