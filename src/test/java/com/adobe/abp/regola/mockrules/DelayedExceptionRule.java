@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.mockrules;
 
+import com.adobe.abp.regola.TestUtils;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
@@ -68,7 +69,7 @@ public class DelayedExceptionRule extends KeyBasedRule {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                });
+                }, TestUtils.DELAY_EXECUTOR);
             }
         };
 

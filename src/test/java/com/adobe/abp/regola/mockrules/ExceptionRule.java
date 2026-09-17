@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.mockrules;
 
+import com.adobe.abp.regola.TestUtils;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
@@ -60,7 +61,7 @@ public class ExceptionRule extends KeyBasedRule {
                         lock.unlock();
                     }
                     throw new RuntimeException("Intentionally failing this rule with an exception");
-                });
+                }, TestUtils.DELAY_EXECUTOR);
             }
         };
 

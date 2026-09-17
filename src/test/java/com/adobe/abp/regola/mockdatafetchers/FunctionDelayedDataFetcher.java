@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.mockdatafetchers;
 
+import com.adobe.abp.regola.TestUtils;
 import com.adobe.abp.regola.datafetchers.Context;
 import com.adobe.abp.regola.datafetchers.DataFetcher;
 import com.adobe.abp.regola.datafetchers.FetchResponse;
@@ -31,7 +32,7 @@ public class FunctionDelayedDataFetcher extends DataFetcher<Object, FunctionDela
         return CompletableFuture.supplyAsync(() -> {
             wait(waitFunction.apply(context.getIteration()));
             return FetchResponseUtils.makeTestResponse();
-        });
+        }, TestUtils.DELAY_EXECUTOR);
     }
 
     public static void wait(int milliseconds) {
