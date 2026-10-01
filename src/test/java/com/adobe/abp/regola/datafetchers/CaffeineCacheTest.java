@@ -115,14 +115,18 @@ class CaffeineCacheTest {
                 return cache.get("foo", mappingFunction);
             });
 
-            assertThat(callersReady.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(callersReady.await(1, TimeUnit.SECONDS))
+                    .isTrue();
             start.countDown();
 
             CompletableFuture<String> first = firstCaller.get(1, TimeUnit.SECONDS);
             CompletableFuture<String> second = secondCaller.get(1, TimeUnit.SECONDS);
 
-            assertThat(mappingInvocations).hasValue(1);
-            assertThat(first).isSameAs(second);
+            assertThat(first)
+                    .isSameAs(second);
+            await().atMost(Duration.ofSeconds(1))
+                    .untilAsserted(() -> assertThat(mappingInvocations)
+                            .hasValue(1));
 
             mappingFuture.complete("foo-async");
             assertThat(first)
@@ -131,6 +135,8 @@ class CaffeineCacheTest {
             assertThat(second)
                     .succeedsWithin(Duration.ofSeconds(1))
                     .isEqualTo("foo-async");
+            assertThat(mappingInvocations)
+                    .hasValue(1);
         } finally {
             start.countDown();
             callers.shutdownNow();
