@@ -16,7 +16,6 @@ import com.adobe.abp.regola.results.RuleResult;
 import java.util.Optional;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +28,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("Testing LockingEvaluationResult")
@@ -450,37 +450,23 @@ class LockingEvaluationResultTest {
 
         @Test
         @DisplayName("does not hold the internal lock when afterCompletion is called")
-        void notCalledUnderLock() throws InterruptedException {
-            // We verify that another thread can call readLocked() while afterCompletion is running.
-            // If afterCompletion were called under the lock, the readLocked() call below would deadlock
-            // (ReentrantLock is reentrant for the *same* thread, but not for other threads).
-            final var lockAccessibleDuringCallback = new CountDownLatch(1);
+        void notCalledUnderLock() throws Exception {
             final var stub = new StubResult() {
                 @Override
                 protected void afterCompletion(Result completedResult, Throwable throwable) {
                     super.afterCompletion(completedResult, throwable);
-                    // Spawn a separate thread that tries to acquire the lock via readLocked.
-                    // If the lock were held here, this would block.
-                    final var future = CompletableFuture.runAsync(() ->
-                            readLocked(() -> {
-                                lockAccessibleDuringCallback.countDown();
-                                return null;
-                            })
-                    );
-                    try {
-                        future.get(2, TimeUnit.SECONDS);
-                    } catch (Exception e) {
-                        // Do not decrement latch — test will fail on assertion below
-                    }
+                    final var reader = CompletableFuture.runAsync(() -> readLocked(() -> null));
+                    assertThatNoException()
+                            .as("another thread must acquire the lock before afterCompletion returns")
+                            .isThrownBy(() -> reader.get(2, TimeUnit.SECONDS));
                 }
             };
 
-            stub.status();
+            final var status = stub.status();
             stub.completeWith(Result.VALID);
 
-            assertThat(lockAccessibleDuringCallback.await(3, TimeUnit.SECONDS))
-                    .as("lock must not be held during afterCompletion — another thread could not acquire it")
-                    .isTrue();
+            assertThat(status.get(3, TimeUnit.SECONDS))
+                    .isEqualTo(Result.VALID);
         }
     }
 
