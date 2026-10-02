@@ -12,6 +12,7 @@
 package com.adobe.abp.regola;
 
 import com.adobe.abp.regola.datafetchers.DataFetcher;
+import com.adobe.abp.regola.datafetchers.FetchResponse;
 import com.adobe.abp.regola.evaluators.Evaluator;
 import com.adobe.abp.regola.facts.DataSource;
 import com.adobe.abp.regola.facts.Fact;
@@ -19,9 +20,12 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.facts.SimpleFactsResolver;
 import com.adobe.abp.regola.facts.TestDataSources;
 import com.adobe.abp.regola.json.RuleModule;
+import com.adobe.abp.regola.mockdatafetchers.FetchResponseUtils;
 import com.adobe.abp.regola.mockdatafetchers.FixedDelayedDataFetcher;
 import com.adobe.abp.regola.mockdatafetchers.FixedDelayedWithSlaDataFetcher;
+import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
 import com.adobe.abp.regola.results.Result;
+import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.rules.Operator;
 import com.adobe.abp.regola.rules.Rule;
 import com.adobe.abp.regola.rules.StringRule;
@@ -32,8 +36,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.time.StopWatch;
 import org.junit.jupiter.api.RepeatedTest;
@@ -128,32 +131,48 @@ public class RegolaIT {
         assertThat(result.getResult()).isEqualTo(Result.FAILED);
     }
 
-    ScheduledExecutorService executorService = Executors.newScheduledThreadPool(5);
-
-    @RepeatedTest(10)
+    @Test
     @Timeout(value = 1)
-    void inspectRunningRule() throws IOException {
+    void inspectRunningRule() throws Exception {
         String jsonRule = TestUtils.readRules(getClass(), "inspect-running-rule.json");
         Rule rule = mapper.readValue(jsonRule, Rule.class);
 
-        final var slow = new FixedDelayedDataFetcher(500);
+        final var fetchResponse = new CompletableFuture<FetchResponse<Object>>();
+        final var controlled = new DataFetcher<Object, FixedDelayedDataFetcher.RemoteContext>() {
+            @Override
+            public CompletableFuture<FetchResponse<Object>> fetchResponse(
+                    FixedDelayedDataFetcher.RemoteContext context) {
+                return fetchResponse;
+            }
+        };
         Map<DataSource, DataFetcher<?, FixedDelayedDataFetcher.RemoteContext>> dataFetchers = Map.of(
-                TestDataSources.SLOW, slow
-        );
+                TestDataSources.SLOW, controlled);
 
-        FactsResolver factsResolver = new SimpleFactsResolver<>(new FixedDelayedDataFetcher.RemoteContext(), dataFetchers);
+        FactsResolver factsResolver = new SimpleFactsResolver<>(
+                new FixedDelayedDataFetcher.RemoteContext(), dataFetchers);
         factsResolver.addFact(new Fact<>("MARKET_SEGMENT", TestDataSources.SLOW, data -> "COM"));
 
         final var evaluationResult = new Evaluator().evaluate(rule, factsResolver);
-        final var future = executorService.scheduleAtFixedRate(() ->
-                assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE), // Can inspect running rule even with read/write lock in place
-                0, 100, TimeUnit.MILLISECONDS);
+        try {
+            final var status = evaluationResult.status();
+            assertThat(status)
+                    .isNotDone();
+            final var pendingSnapshot = (MultiaryBooleanRuleResult) evaluationResult.snapshot();
+            assertThat(pendingSnapshot.getResult())
+                    .isEqualTo(Result.MAYBE);
+            assertThat(pendingSnapshot.getRules())
+                    .extracting(RuleResult::getResult)
+                    .containsExactly(Result.MAYBE);
 
-        evaluationResult.status().join();
-        final var result = evaluationResult.snapshot();
-        assertThat(result.getResult()).isEqualTo(Result.VALID);
+            fetchResponse.complete(FetchResponseUtils.makeTestResponse());
 
-        future.cancel(true);
+            assertThat(status.get(1, TimeUnit.SECONDS))
+                    .isEqualTo(Result.VALID);
+            assertThat(evaluationResult.snapshot().getResult())
+                    .isEqualTo(Result.VALID);
+        } finally {
+            fetchResponse.cancel(false);
+        }
     }
 
     @Test
