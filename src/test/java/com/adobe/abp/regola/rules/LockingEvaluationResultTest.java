@@ -451,22 +451,29 @@ class LockingEvaluationResultTest {
         @Test
         @DisplayName("does not hold the internal lock when afterCompletion is called")
         void notCalledUnderLock() throws Exception {
+            final var readerExecutor = Executors.newSingleThreadExecutor();
             final var stub = new StubResult() {
                 @Override
                 protected void afterCompletion(Result completedResult, Throwable throwable) {
                     super.afterCompletion(completedResult, throwable);
-                    final var reader = CompletableFuture.runAsync(() -> readLocked(() -> null));
+                    final var reader = CompletableFuture.runAsync(
+                            () -> readLocked(() -> null),
+                            readerExecutor);
                     assertThatNoException()
                             .as("another thread must acquire the lock before afterCompletion returns")
                             .isThrownBy(() -> reader.get(2, TimeUnit.SECONDS));
                 }
             };
 
-            final var status = stub.status();
-            stub.completeWith(Result.VALID);
+            try {
+                final var status = stub.status();
+                stub.completeWith(Result.VALID);
 
-            assertThat(status.get(3, TimeUnit.SECONDS))
-                    .isEqualTo(Result.VALID);
+                assertThat(status.get(3, TimeUnit.SECONDS))
+                        .isEqualTo(Result.VALID);
+            } finally {
+                readerExecutor.shutdownNow();
+            }
         }
     }
 
