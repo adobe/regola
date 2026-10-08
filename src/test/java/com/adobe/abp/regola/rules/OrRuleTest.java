@@ -339,7 +339,7 @@ class OrRuleTest {
         @Test
         @DisplayName("evaluate and return description in result")
         void descriptionInResult() {
-            final var ruleOne = new MockRule("rule-1", Result.VALID);
+            final var ruleOne = new MockRule("rule-1", Result.INVALID);
             final var ruleTwo = new MockRule("rule-2", Result.INVALID);
             rule.setRules(List.of(ruleOne, ruleTwo));
             rule.setDescription("ORing of two rules");
@@ -353,11 +353,11 @@ class OrRuleTest {
 
             final var result = evaluationResult.status().join();
 
-            assertThat(result).isEqualTo(Result.VALID);
+            assertThat(result).isEqualTo(Result.INVALID);
             final var finalResult = ruleResultBuilder.with(r -> {
-                r.result = Result.VALID;
+                r.result = Result.INVALID;
                 r.rules = Set.of(
-                        buildRuleResult(ruleOne, Result.VALID),
+                        buildRuleResult(ruleOne, Result.INVALID),
                         buildRuleResult(ruleTwo, Result.INVALID)
                 );
             }).build();
