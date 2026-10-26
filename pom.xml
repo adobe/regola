@@ -79,7 +79,7 @@
         <maven.gpg.plugin.version>3.2.8</maven.gpg.plugin.version>
         <maven.release.plugin.version>3.3.1</maven.release.plugin.version>
         <central.publishing.maven.plugin.version>0.12.0</central.publishing.maven.plugin.version>
-        <jacoco.plugin.version>0.8.15</jacoco.plugin.version>
+        <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
         <jacoco.line.coverage.minimum>0.80</jacoco.line.coverage.minimum>
 
         <!-- Dependencies versions -->
