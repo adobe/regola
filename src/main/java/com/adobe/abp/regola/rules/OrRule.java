@@ -72,7 +72,8 @@ public class OrRule extends MultiaryBooleanRule {
                 // Non-blocking: status() kicks off each subrule and whenComplete only registers a callback,
                 // so the subrules evaluate concurrently. Each callback reports back via evaluateSubresult as
                 // it settles; this loop does not wait. (Actual concurrency depends on the fact fetchers being async.)
-                for (int i = 0; i < rules.size(); i++) {
+                // Once a subrule has decided the result, the remaining subrules are not started.
+                for (int i = 0; i < rules.size() && !isDone(); i++) {
                     final boolean ignore = rules.get(i).isIgnore();
                     startChild(evaluated.get(i))
                             .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
