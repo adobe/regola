@@ -12,10 +12,17 @@
 package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.actions.Action;
+import com.adobe.abp.regola.datafetchers.Context;
+import com.adobe.abp.regola.datafetchers.DataFetcher;
+import com.adobe.abp.regola.facts.DataSource;
+import com.adobe.abp.regola.facts.Fact;
 import com.adobe.abp.regola.facts.FactsResolver;
+import com.adobe.abp.regola.facts.SimpleFactsResolver;
+import com.adobe.abp.regola.mockdatafetchers.SynchronouslyFailingDataFetcher;
 import com.adobe.abp.regola.mockrules.DelayedExceptionRule;
 import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
+import com.adobe.abp.regola.mockrules.ImmediateRule;
 import com.adobe.abp.regola.mockrules.MockRule;
 import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
 import com.adobe.abp.regola.results.Result;
@@ -36,10 +43,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("Testing OrRule")
 class OrRuleTest {
@@ -49,6 +58,10 @@ class OrRuleTest {
     private MultiaryBooleanRuleResult.RuleResultBuilder ruleResultBuilder;
 
     private final FactsResolver resolver = mock(FactsResolver.class);
+
+    private enum TestDataSource implements DataSource {
+        FAILING
+    }
 
     @BeforeEach
     void setup() {
@@ -486,6 +499,40 @@ class OrRuleTest {
             assertThat(evaluationResult.status())
                     .succeedsWithin(Duration.ofMillis(2000)) // delay is 1000ms; extra slack absorbs scheduling/GC jitter on slow/busy machines
                     .isEqualTo(Result.INVALID);
+        }
+    }
+
+    @Nested
+    @DisplayName("with synchronous failures should")
+    class SynchronousFailureTest {
+
+        @Test
+        @DisplayName("evaluate as valid when a subrule's data fetcher fails synchronously and a later subrule is valid")
+        void synchronousFetchFailureDoesNotPreventValid() {
+            final var factsResolver = new SimpleFactsResolver<>(
+                    new Context() {
+                    },
+                    Map.<DataSource, DataFetcher<?, Context>>of(TestDataSource.FAILING, new SynchronouslyFailingDataFetcher()));
+            factsResolver.addFact(new Fact<>("failing-fact", TestDataSource.FAILING, data -> data));
+            final var ruleTwo = new ImmediateRule("rule-2", Result.VALID);
+            rule.setRules(List.of(new StringRule("failing-fact", Operator.EQUALS, "value"), ruleTwo));
+
+            assertThat(rule.evaluate(factsResolver).status()).isCompletedWithValue(Result.VALID);
+            assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("ignore an ignored subrule that throws synchronously when started")
+        void ignoredSubruleThrowingSynchronouslyIsIgnored() {
+            final FactsResolver throwingResolver = mock(FactsResolver.class);
+            when(throwingResolver.resolveFact("throwing-fact")).thenThrow(new IllegalStateException("boom"));
+            final var ruleOne = new StringRule("throwing-fact", Operator.EQUALS, "value");
+            ruleOne.setIgnore(true);
+            final var ruleTwo = new ImmediateRule("rule-2", Result.VALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            assertThat(rule.evaluate(throwingResolver).status()).isCompletedWithValue(Result.VALID);
+            assertThat(ruleTwo.getStarts()).isEqualTo(1);
         }
     }
 

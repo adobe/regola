@@ -31,6 +31,9 @@ import java.util.function.Function;
  * configured by {@link DataCacheConfiguration#setExecutor(Executor)} is used by the cache itself
  * and does not provide this resolver-level isolation.</p>
  *
+ * <p>With or without an executor, a fetch that throws synchronously is reported as an
+ * exceptionally completed future rather than thrown to the caller.</p>
+ *
  * <p>The resolver does not own or close a caller-provided executor.</p>
  *
  * @param <C> context used by registered data fetchers
@@ -105,7 +108,11 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
 
     private CompletableFuture<?> fetch(DataFetcher<?, C> dataFetcher) {
         if (executor == null) {
-            return dataFetcher.fetch(context);
+            try {
+                return dataFetcher.fetch(context);
+            } catch (RuntimeException e) {
+                return CompletableFuture.failedFuture(e);
+            }
         }
 
         return FutureUtils.supplyAsync(() -> dataFetcher.fetch(context), executor)

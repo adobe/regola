@@ -312,6 +312,23 @@ class SimpleFactsResolverTest {
             }
         }
 
+        @ParameterizedTest(name = "should complete exceptionally without an executor for a synchronous failure in {0}")
+        @EnumSource(SynchronousFailurePoint.class)
+        void synchronousFetchInvocationFailuresBecomeFailedFuturesWithoutExecutor(SynchronousFailurePoint failurePoint) {
+            DataFetcher<MockData, Context> dataFetcher = new SynchronouslyFailingDataFetcher(failurePoint);
+            SimpleFactsResolver<Context> factsResolver = new SimpleFactsResolver<>(
+                    context, Map.of(TestDataSources.MOCK, dataFetcher));
+            factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
+
+            CompletableFuture<Object> resolvedFact = factsResolver.resolveFact(TEST_KEY);
+
+            assertThat(resolvedFact)
+                    .failsWithin(Duration.ofMillis(200))
+                    .withThrowableOfType(ExecutionException.class)
+                    .withCauseInstanceOf(IllegalStateException.class)
+                    .withMessageContaining(failurePoint.name());
+        }
+
         @Test
         @DisplayName("should invoke the complete data fetch directly without an executor")
         void noExecutorRunsCompleteDataFetchOnCallingThread() {
