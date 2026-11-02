@@ -646,21 +646,25 @@ Example of a data fetcher getting data over HTTP:
 public class OfferDataFetcher implements DataFetcher<Offer, YourContext> {
 
     private final OfferHttpConnector offerHttpConnector;
+    private final Executor ioExecutor;
 
-    public OfferDataFetcher(OfferHttpConnector offerHttpConnector) {
+    public OfferDataFetcher(OfferHttpConnector offerHttpConnector, Executor ioExecutor) {
         this.offerHttpConnector = offerHttpConnector;
+        this.ioExecutor = ioExecutor;
     }
 
     @Override
     public CompletableFuture<FetchResponse<Offer>> fetchResponse(YourContext context) {
         GetOffersRequest request = buildRequest(context);
+        // The connector blocks, so run it on an executor you own, not the common ForkJoinPool.
+        // See "Executors and blocking data fetchers" below.
         return CompletableFuture.supplyAsync(() -> {
             final var response = new FetchResponse<>();
             response.setData(offerHttpConnector.getOffers(request)
                     .stream()
                     .findFirst());
             return response;
-        });
+        }, ioExecutor);
     }
 
     // Do not override this method if you do not want to cache results from this data fetcher.
@@ -754,6 +758,42 @@ public class OfferDataFetcher implements DataFetcher<Offer, YourContext> {
     }
 }
 ```
+
+### Executors and blocking data fetchers
+
+Evaluation is asynchronous, but regola does not create or manage threads of its own.
+You can supply an executor in three places:
+
+| Executor | Supplied via | Use it to |
+|----------|--------------|-----------|
+| **Resolver** | `new SimpleFactsResolver<>(context, dataFetchers, executor)` | Run your data fetchers off the thread that starts the evaluation. |
+| **Cache** | `new DataCacheConfiguration().setExecutor(executor)` | Control where the default cache loads data. |
+| **Rule** | e.g. `new SetRule<>(executor)`, `new StringRule(executor)` | Control where a rule checks a fact once it is available. |
+
+If your data fetchers may block, supply a **resolver** executor: it is the only one of
+the three that protects evaluation from blocking data fetchers.
+
+#### The blocking contract
+
+- `fetchResponse(...)` should return promptly whenever practical, placing blocking or
+  long-running work in the returned future, on an executor you own.
+- `AND` and `OR` rules start their children one after the other on the calling thread.
+  If a data fetcher blocks before returning its future, and no resolver executor is
+  supplied, the children are effectively fetched one at a time instead of concurrently.
+- Supply a resolver executor whenever a data fetcher may do synchronous work, including
+  an expensive `calculateRequestKey` or a custom `DataCache` that blocks.
+- Avoid `ForkJoinPool.commonPool()` for blocking I/O: it is small, shared with the rest
+  of the JVM, and is what regola falls back to when an executor is not supplied.
+- Keep `Fact` functions cheap: they run on the thread that completes the fetch.
+
+```java
+Executor fetchExecutor = ...; // an executor you own
+
+FactsResolver factsResolver = new SimpleFactsResolver<>(yourContext, dataFetchers, fetchExecutor);
+```
+
+Regola never shuts down an executor you pass to it. You own its lifecycle: create it
+once, share it across evaluations, and close it when your application stops.
 
 ## Actions
 

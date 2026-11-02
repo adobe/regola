@@ -61,6 +61,17 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
         this(null);
     }
 
+    /**
+     * Construct a range rule.
+     *
+     * <p>{@code executor} runs the check after the fact is resolved, and the
+     * {@code OPERATION_NOT_SUPPORTED} result for unsupported operators. It does not run fact resolution:
+     * to isolate blocking data fetchers, supply an executor to
+     * {@link com.adobe.abp.regola.facts.SimpleFactsResolver} instead.</p>
+     *
+     * @param executor executor for the check, or {@code null} to use
+     *                 {@link java.util.concurrent.ForkJoinPool#commonPool()}
+     */
     public RangeRule(Executor executor) {
         super(RuleType.RANGE.getName());
         this.executor = executor;
