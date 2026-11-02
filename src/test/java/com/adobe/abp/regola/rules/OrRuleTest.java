@@ -537,6 +537,43 @@ class OrRuleTest {
     }
 
     @Nested
+    @DisplayName("once the result is decided should")
+    class EarlyStopTest {
+
+        @Test
+        @DisplayName("not start later subrules after a valid subrule")
+        void doesNotStartLaterSubrulesAfterValid() {
+            final var ruleOne = new ImmediateRule("rule-1", Result.VALID);
+            final var ruleTwo = new ImmediateRule("rule-2", Result.INVALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status()).isCompletedWithValue(Result.VALID);
+            assertThat(ruleTwo.getStarts()).isZero();
+            assertThat(evaluationResult.snapshot())
+                    .isInstanceOfSatisfying(MultiaryBooleanRuleResult.class,
+                            ruleResult -> assertThat(ruleResult.getRules())
+                                    .extracting(RuleResult::getType, RuleResult::getResult)
+                                    .containsExactlyInAnyOrder(
+                                            Tuple.tuple("IMMEDIATE_RULE", Result.VALID),
+                                            Tuple.tuple("IMMEDIATE_RULE", Result.MAYBE)));
+        }
+
+        @Test
+        @DisplayName("keep starting subrules after an ignored valid subrule")
+        void ignoredValidSubruleDoesNotStopEvaluation() {
+            final var ruleOne = new ImmediateRule("rule-1", Result.VALID);
+            ruleOne.setIgnore(true);
+            final var ruleTwo = new ImmediateRule("rule-2", Result.INVALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.INVALID);
+            assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+    }
+
+    @Nested
     @DisplayName("with exception rules should")
     class WithExceptionRuleTest {
 

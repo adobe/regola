@@ -150,6 +150,23 @@ The OR rule is commutative: `A || B = B || A`.
 
 An empty `OR` evaluates to `INVALID`. This follows the identity of disjunction: with no subrules, there is nothing that can make the expression valid.
 
+#### Short-circuiting
+
+AND and OR stop as soon as their result is decided: an AND by its first subrule that is not VALID,
+an OR by its first VALID subrule. Ignored subrules never decide the result.
+
+Subrules are started in the order they are listed, without waiting for one another. Once the result
+is decided:
+- subrules that have not been started yet are skipped. They report `MAYBE` and their actions do not run.
+- subrules that are already running are not cancelled, but their results no longer change the outcome.
+
+Skipping therefore only happens when a subrule completes while the AND/OR is still starting its
+siblings. With asynchronous data fetchers, all subrules are usually started before any of them
+completes.
+
+A subrule whose fact cannot be fetched evaluates to `FAILED`, whether the data fetcher returns a
+failed future or throws.
+
 #### Not Rule
 
 The "Not Rule" is used to negate the result of another rule.
@@ -773,6 +790,8 @@ rule.setAction(action);
 ```
 
 In this particular example, this action will be executed when the rule is evaluated and the result is `VALID`.
+
+An action does not run for a subrule that was skipped by [short-circuiting](#short-circuiting).
 
 ### Chaining
 
