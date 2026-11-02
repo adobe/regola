@@ -193,6 +193,43 @@ class AndRuleTest {
     }
 
     @Nested
+    @DisplayName("once the result is decided should")
+    class EarlyStopTest {
+
+        @ParameterizedTest(name = "not start later subrules after a {0} subrule")
+        @EnumSource(value = Result.class, names = {"VALID"}, mode = EnumSource.Mode.EXCLUDE)
+        void doesNotStartLaterSubrules(Result decidingResult) {
+            final var ruleOne = new ImmediateRule("rule-1", decidingResult);
+            final var ruleTwo = new ImmediateRule("rule-2", Result.VALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status()).isCompletedWithValue(decidingResult);
+            assertThat(ruleTwo.getStarts()).isZero();
+            assertThat(evaluationResult.snapshot())
+                    .isInstanceOfSatisfying(MultiaryBooleanRuleResult.class,
+                            ruleResult -> assertThat(ruleResult.getRules())
+                                    .extracting(RuleResult::getType, RuleResult::getResult)
+                                    .containsExactlyInAnyOrder(
+                                            Tuple.tuple("IMMEDIATE_RULE", decidingResult),
+                                            Tuple.tuple("IMMEDIATE_RULE", Result.MAYBE)));
+        }
+
+        @Test
+        @DisplayName("keep starting subrules after an ignored subrule that is not valid")
+        void ignoredSubruleDoesNotStopEvaluation() {
+            final var ruleOne = new ImmediateRule("rule-1", Result.INVALID);
+            ruleOne.setIgnore(true);
+            final var ruleTwo = new ImmediateRule("rule-2", Result.VALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.VALID);
+            assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+    }
+
+    @Nested
     @DisplayName("with mock rules should")
     class WithMockRulesTest {
 
