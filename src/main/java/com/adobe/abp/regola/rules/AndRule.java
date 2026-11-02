@@ -67,7 +67,7 @@ public class AndRule extends MultiaryBooleanRule {
                 // it settles; this loop does not wait. (Actual concurrency depends on the fact fetchers being async.)
                 for (int i = 0; i < rules.size(); i++) {
                     final boolean ignore = rules.get(i).isIgnore();
-                    evaluated.get(i).status()
+                    startChild(evaluated.get(i))
                             .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
                 }
             }

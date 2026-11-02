@@ -207,6 +207,18 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
         }
     }
 
+    /**
+     * Start a child evaluation, reporting a synchronous failure as an exceptionally completed future
+     * so that the caller handles it exactly like an asynchronous one.
+     */
+    static CompletableFuture<Result> startChild(EvaluationResult child) {
+        try {
+            return child.status();
+        } catch (RuntimeException e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
     // ── Template methods ──────────────────────────────────────────────────────────────────────────
 
     /**

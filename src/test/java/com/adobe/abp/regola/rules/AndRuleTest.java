@@ -19,8 +19,10 @@ import com.adobe.abp.regola.facts.Fact;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.facts.SimpleFactsResolver;
 import com.adobe.abp.regola.mockdatafetchers.BlockingBeforeFutureDataFetcher;
+import com.adobe.abp.regola.mockdatafetchers.SynchronouslyFailingDataFetcher;
 import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
+import com.adobe.abp.regola.mockrules.ImmediateRule;
 import com.adobe.abp.regola.mockrules.MockRule;
 import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
 import com.adobe.abp.regola.results.Result;
@@ -48,6 +50,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("Testing AndRule")
 class AndRuleTest {
@@ -152,6 +155,40 @@ class AndRuleTest {
         private void shutdown(ExecutorService executor) throws InterruptedException {
             executor.shutdownNow();
             assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("with synchronous failures should")
+    class SynchronousFailureTest {
+
+        @Test
+        @DisplayName("evaluate as failed when a subrule's data fetcher fails synchronously")
+        void synchronousFetchFailureEvaluatesAsFailed() {
+            final var factsResolver = new SimpleFactsResolver<>(
+                    new Context() {
+                    },
+                    Map.<DataSource, DataFetcher<?, Context>>of(BlockingDataSources.FIRST, new SynchronouslyFailingDataFetcher()));
+            factsResolver.addFact(new Fact<>("failing-fact", BlockingDataSources.FIRST, data -> data));
+            rule.setRules(List.of(
+                    new StringRule("failing-fact", Operator.EQUALS, "value"),
+                    new ImmediateRule("rule-2", Result.VALID)));
+
+            assertThat(rule.evaluate(factsResolver).status()).isCompletedWithValue(Result.FAILED);
+        }
+
+        @Test
+        @DisplayName("ignore an ignored subrule that throws synchronously when started")
+        void ignoredSubruleThrowingSynchronouslyIsIgnored() {
+            final FactsResolver throwingResolver = mock(FactsResolver.class);
+            when(throwingResolver.resolveFact("throwing-fact")).thenThrow(new IllegalStateException("boom"));
+            final var ruleOne = new StringRule("throwing-fact", Operator.EQUALS, "value");
+            ruleOne.setIgnore(true);
+            final var ruleTwo = new ImmediateRule("rule-2", Result.VALID);
+            rule.setRules(List.of(ruleOne, ruleTwo));
+
+            assertThat(rule.evaluate(throwingResolver).status()).isCompletedWithValue(Result.VALID);
+            assertThat(ruleTwo.getStarts()).isEqualTo(1);
         }
     }
 

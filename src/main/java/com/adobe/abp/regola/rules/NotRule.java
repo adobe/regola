@@ -56,7 +56,7 @@ public class NotRule extends UnaryBooleanRule {
                 notResult = evaluationResult; // safe publication before the callback below can fire
 
                 final boolean ignore = rule.isIgnore();
-                evaluationResult.status()
+                startChild(evaluationResult)
                         .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
             }
 
