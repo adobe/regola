@@ -31,6 +31,19 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
     private final Executor executor;
     private final Set<Class<?>> factTypes;
 
+    /**
+     * Construct a single-value rule.
+     *
+     * <p>The check runs on the thread that completes the fact. {@code executor} only produces the
+     * {@code OPERATION_NOT_SUPPORTED} result for unsupported operators; it does not run fact resolution.
+     * To isolate blocking data fetchers, supply an executor to
+     * {@link com.adobe.abp.regola.facts.SimpleFactsResolver} instead.</p>
+     *
+     * @param type rule type
+     * @param factTypes accepted fact types
+     * @param executor executor for the unsupported-operator result, or {@code null} to use
+     *                 {@link java.util.concurrent.ForkJoinPool#commonPool()}
+     */
     public SingleValueRule(String type, Set<Class<?>> factTypes, Executor executor) {
         super(type);
         this.factTypes = factTypes;

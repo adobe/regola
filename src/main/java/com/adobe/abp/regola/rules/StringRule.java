@@ -30,10 +30,24 @@ public class StringRule extends SingleValueRule<String> {
         this(null, key, operator, value);
     }
 
+    /**
+     * Construct a string rule. See {@link SingleValueRule#SingleValueRule(String, Set, Executor)} for the
+     * role of {@code executor}.
+     *
+     * @param executor executor for the unsupported-operator result, or {@code null} for the common pool
+     */
     public StringRule(Executor executor) {
         super(RuleType.STRING.getName(), Set.of(String.class), executor);
     }
 
+    /**
+     * Construct a string rule. See {@link #StringRule(Executor)} for the role of {@code executor}.
+     *
+     * @param executor executor for the unsupported-operator result, or {@code null} for the common pool
+     * @param key fact key
+     * @param operator operator
+     * @param value expected value
+     */
     public StringRule(Executor executor, String key, Operator operator, String value) {
         this(executor);
         setKey(key);

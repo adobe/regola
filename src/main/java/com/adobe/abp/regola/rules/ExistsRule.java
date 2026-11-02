@@ -38,11 +38,27 @@ public class ExistsRule extends KeyBasedRule {
         this(null, key);
     }
 
+    /**
+     * Construct an exists rule.
+     *
+     * <p>{@code executor} runs the check after the fact is resolved. It does not run fact resolution:
+     * to isolate blocking data fetchers, supply an executor to
+     * {@link com.adobe.abp.regola.facts.SimpleFactsResolver} instead.</p>
+     *
+     * @param executor executor for the check, or {@code null} to use
+     *                 {@link java.util.concurrent.ForkJoinPool#commonPool()}
+     */
     public ExistsRule(Executor executor) {
         super(RuleType.EXISTS.getName());
         this.executor = executor;
     }
 
+    /**
+     * Construct an exists rule. See {@link #ExistsRule(Executor)} for the role of {@code executor}.
+     *
+     * @param executor executor for the check, or {@code null} for the common pool
+     * @param key fact key
+     */
     public ExistsRule(Executor executor, String key) {
         this(executor);
         setKey(key);

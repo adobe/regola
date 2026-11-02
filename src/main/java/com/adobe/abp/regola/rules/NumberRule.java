@@ -36,10 +36,24 @@ public class NumberRule<V extends Number & Comparable<V>> extends SingleValueRul
         this(null, key, operator, value);
     }
 
+    /**
+     * Construct a number rule. See {@link SingleValueRule#SingleValueRule(String, Set, Executor)} for the
+     * role of {@code executor}.
+     *
+     * @param executor executor for the unsupported-operator result, or {@code null} for the common pool
+     */
     public NumberRule(Executor executor) {
         super(RuleType.NUMBER.getName(), Set.of(Number.class, Comparable.class), executor);
     }
 
+    /**
+     * Construct a number rule. See {@link #NumberRule(Executor)} for the role of {@code executor}.
+     *
+     * @param executor executor for the unsupported-operator result, or {@code null} for the common pool
+     * @param key fact key
+     * @param operator operator
+     * @param value expected value
+     */
     public NumberRule(Executor executor, String key, Operator operator, V value) {
         this(executor);
         setKey(key);
