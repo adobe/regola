@@ -167,7 +167,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
             @Override
             public void cancel() {
-                cancellation.cancel();
+                cancellation.cancel(() -> Optional.ofNullable(getAction())
+                        .ifPresent(action -> action.onCancellation(snapshot())));
             }
 
             private CompletableFuture<Result> evaluateFact() {

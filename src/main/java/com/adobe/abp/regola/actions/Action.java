@@ -13,11 +13,13 @@ package com.adobe.abp.regola.actions;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.utils.lambda.TriConsumer;
+import java.util.function.Consumer;
 
 public class Action {
 
     private String description;
     private TriConsumer<Result, Throwable, RuleResult> onCompletion;
+    private Consumer<RuleResult> onCancellation;
 
     public String getDescription() {
         return description;
@@ -34,7 +36,28 @@ public class Action {
     }
 
     public void onCompletion(Result result, Throwable throwable, RuleResult ruleResult) {
-        this.onCompletion.accept(result, throwable, ruleResult);
+        if (onCompletion != null) {
+            onCompletion.accept(result, throwable, ruleResult);
+        }
+    }
+
+    /**
+     * Set the callback to run instead of {@link #onCompletion(Result, Throwable, RuleResult)} when
+     * the rule is skipped or cancelled because its result is no longer needed.
+     *
+     * @param onCancellation receives the rule's result, {@link RuleResult#isSkipped() skipped} or
+     *                       {@link RuleResult#isCancelled() cancelled}
+     * @return this action
+     */
+    public Action setOnCancellation(Consumer<RuleResult> onCancellation) {
+        this.onCancellation = onCancellation;
+        return this;
+    }
+
+    public void onCancellation(RuleResult ruleResult) {
+        if (onCancellation != null) {
+            onCancellation.accept(ruleResult);
+        }
     }
 
     @Override
@@ -42,6 +65,7 @@ public class Action {
         return "Action{" +
                 "description='" + description + '\'' +
                 ", onCompletion=" + (onCompletion != null) +
+                ", onCancellation=" + (onCancellation != null) +
                 '}';
     }
 }

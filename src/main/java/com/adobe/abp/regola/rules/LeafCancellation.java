@@ -31,8 +31,8 @@ import java.util.function.Supplier;
  *
  * <p>Cancelling cancels the rule's status future and, if the {@link FactsResolver}
  * {@link FactsResolver#supportsCancellation() supports it}, the future it returned, so that the
- * resolver can skip a fetch that has not started yet. Rules also commit before
- * running their action, so the action of a cancelled rule never runs.</p>
+ * resolver can skip a fetch that has not started yet. Rules also commit before running their
+ * action's completion callback, so a stopped rule runs its cancellation callback instead.</p>
  */
 final class LeafCancellation {
 
@@ -105,15 +105,19 @@ final class LeafCancellation {
     /**
      * Stop the evaluation unless it has already committed to an outcome or been stopped.
      *
-     * @return {@code true} if this call stopped the evaluation
+     * @param onStopped run once the evaluation is marked as stopped, before the status future is
+     *                  cancelled, only if this call stopped the evaluation
      */
-    boolean cancel() {
+    void cancel(Runnable onStopped) {
         if (!state.compareAndSet(State.PENDING, started ? State.CANCELLED : State.SKIPPED)) {
-            return false; // already committed to an outcome, or already stopped
+            return; // already committed to an outcome, or already stopped
         }
-        // Cancel the status first: cancelling the fact completes the status chain synchronously.
-        Optional.ofNullable(status).ifPresent(s -> s.cancel(false));
-        Optional.ofNullable(fact).ifPresent(f -> f.cancel(false));
-        return true;
+        try {
+            onStopped.run();
+        } finally {
+            // Cancel the status first: cancelling the fact completes the status chain synchronously.
+            Optional.ofNullable(status).ifPresent(s -> s.cancel(false));
+            Optional.ofNullable(fact).ifPresent(f -> f.cancel(false));
+        }
     }
 }
