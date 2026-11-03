@@ -18,9 +18,12 @@ import com.adobe.abp.regola.datafetchers.cache.DataCache;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -349,6 +352,83 @@ class SimpleFactsResolverTest {
                     .failsWithin(Duration.ofMillis(200))
                     .withThrowableOfType(ExecutionException.class)
                     .withCause(error);
+        }
+
+        @Test
+        @DisplayName("should not invoke the data fetcher when cancelled while queued on the executor")
+        void cancelledQueuedFetchDoesNotInvokeDataFetcher() throws Exception {
+            RecordingDataFetcher dataFetcher = new RecordingDataFetcher(new RecordingDataCache());
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            CountDownLatch release = new CountDownLatch(1);
+            try {
+                executor.submit(() -> {
+                    release.await(); // occupies the only executor thread
+                    return null;
+                });
+                SimpleFactsResolver<Context> factsResolver = new SimpleFactsResolver<>(
+                        context, Map.of(TestDataSources.MOCK, dataFetcher), executor);
+                factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
+
+                CompletableFuture<Object> resolvedFact = factsResolver.resolveFact(TEST_KEY);
+                resolvedFact.cancel(false);
+                release.countDown();
+                executor.submit(() -> null).get(5, TimeUnit.SECONDS); // drain the queue
+
+                assertThat(resolvedFact).isCancelled();
+                assertThat(dataFetcher.fetchThread.get()).isNull();
+            } finally {
+                release.countDown();
+                executor.shutdownNow();
+            }
+        }
+
+        @Test
+        @DisplayName("should not affect a fetch shared through the cache when one caller cancels")
+        void cancellingOneCallerDoesNotCancelSharedFetch() throws Exception {
+            CompletableFuture<FetchResponse<MockData>> response = new CompletableFuture<>();
+            AtomicInteger responses = new AtomicInteger();
+            CountDownLatch bothFetching = new CountDownLatch(2);
+            DataFetcher<MockData, Context> dataFetcher = new DataFetcher<MockData, Context>() {
+                @Override
+                public String calculateRequestKey(Context context) {
+                    return TEST_KEY;
+                }
+
+                @Override
+                public CompletableFuture<MockData> fetch(Context context) {
+                    CompletableFuture<MockData> fetch = super.fetch(context);
+                    bothFetching.countDown();
+                    return fetch;
+                }
+
+                @Override
+                public CompletableFuture<FetchResponse<MockData>> fetchResponse(Context context) {
+                    responses.incrementAndGet();
+                    return response;
+                }
+            };
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            try {
+                SimpleFactsResolver<Context> factsResolver = new SimpleFactsResolver<>(
+                        context, Map.of(TestDataSources.MOCK, dataFetcher), executor);
+                factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
+
+                CompletableFuture<Object> cancelled = factsResolver.resolveFact(TEST_KEY);
+                CompletableFuture<Object> kept = factsResolver.resolveFact(TEST_KEY);
+                assertThat(bothFetching.await(5, TimeUnit.SECONDS)).isTrue();
+                cancelled.cancel(false);
+                FetchResponse<MockData> fetchResponse = new FetchResponse<>();
+                fetchResponse.setData(new MockData("ETLA"));
+                response.complete(fetchResponse);
+
+                assertThat(kept)
+                        .succeedsWithin(Duration.ofMillis(500))
+                        .isEqualTo("ETLA");
+                assertThat(cancelled).isCancelled();
+                assertThat(responses).hasValue(1);
+            } finally {
+                executor.shutdownNow();
+            }
         }
 
         @Test

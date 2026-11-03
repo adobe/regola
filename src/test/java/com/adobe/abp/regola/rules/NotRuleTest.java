@@ -16,6 +16,7 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
 import com.adobe.abp.regola.mockrules.MockRule;
+import com.adobe.abp.regola.mockrules.PendingRule;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.UnaryBooleanRuleResult;
@@ -51,6 +52,20 @@ class NotRuleTest {
         rule = new NotRule();
 
         ruleResultBuilder = UnaryBooleanRuleResult.builder().with(r -> r.type = RuleType.NOT.getName());
+    }
+
+    @Test
+    @DisplayName("should cancel its subrule when cancelled")
+    void cancelCancelsSubrule() {
+        final var subrule = new PendingRule("subrule");
+        rule.setRule(subrule);
+
+        final var evaluationResult = rule.evaluate(resolver);
+        final var status = evaluationResult.status();
+        evaluationResult.cancel();
+
+        assertThat(status).isCancelled();
+        assertThat(subrule.isCancelled()).isTrue();
     }
 
     @Test
