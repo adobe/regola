@@ -77,30 +77,42 @@ public class RuleResultSerializationTest {
 
     @Test
     void serializeMultiaryRuleResult() throws IOException {
+        final var cause = new IllegalStateException("boom");
         final var ruleResult = MultiaryBooleanRuleResult.builder().with(r -> {
             r.type = "Multiary-type";
             r.result = Result.VALID;
+            r.cause = cause;
             r.rules = List.of(
                     valuesRuleResult
             );
         }).build();
 
+        assertThat(ruleResult.getCause())
+                .isSameAs(cause);
+
         String jsonRule = TestUtils.readRules(getClass(), "multiary-result-rule.json");
         RuleResult expectedRule = mapper.readValue(jsonRule, new TypeReference<>() {});
+        expectedRule.setCause(cause);
 
         assertThat(ruleResult).isEqualTo(expectedRule);
     }
 
     @Test
     void serializeUnaryRuleResult() throws IOException {
+        final var cause = new IllegalStateException("boom");
         final var ruleResult = UnaryBooleanRuleResult.builder().with(r -> {
             r.type = "Unary-type";
             r.result = Result.VALID;
+            r.cause = cause;
             r.rule = valuesRuleResult;
         }).build();
 
+        assertThat(ruleResult.getCause())
+                .isSameAs(cause);
+
         String jsonRule = TestUtils.readRules(getClass(), "unary-result-rule.json");
         RuleResult expectedRule = mapper.readValue(jsonRule, new TypeReference<>() {});
+        expectedRule.setCause(cause);
 
         assertThat(ruleResult).isEqualTo(expectedRule);
     }

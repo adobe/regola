@@ -75,6 +75,7 @@ public class MultiaryBooleanRuleResult extends RuleResult {
         public String type;
         public String description;
         public String message;
+        public Throwable cause;
         public boolean ignored;
         public boolean skipped;
         public boolean cancelled;
@@ -91,6 +92,7 @@ public class MultiaryBooleanRuleResult extends RuleResult {
             ruleResult.setType(type);
             ruleResult.setDescription(description);
             ruleResult.setMessage(message);
+            ruleResult.setCause(cause);
             ruleResult.setIgnored(ignored);
             ruleResult.setSkipped(skipped);
             ruleResult.setCancelled(cancelled);
