@@ -203,7 +203,10 @@ Stopped:
 - subrules that have not been started yet.
 - fact fetches still waiting for a thread on the `SimpleFactsResolver` executor: the data fetcher is
   not called.
-- rule checks still waiting for a thread on a leaf rule's executor.
+- rule checks that have not run yet. `SetRule`, `RangeRule`, `ExistsRule` and `NullRule` queue
+  their check on the rule's executor, and skip it if cancelled while it is queued. `StringRule`,
+  `NumberRule` and `DateRule` run their check on the thread that completes the fact, and skip it if
+  cancelled before the fact is available.
 - `onCompletion` callbacks of cancelled rules: `onCancellation` runs instead.
 
 Not stopped:
