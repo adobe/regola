@@ -67,10 +67,10 @@ public class ExistsRule extends KeyBasedRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
             private final LeafCancellation cancellation = new LeafCancellation();
-            private Result result = Result.MAYBE;
-            private Object evaluatedFact;
-            private String message;
-            private Throwable cause;
+            private volatile Result result = Result.MAYBE;
+            private volatile Object evaluatedFact;
+            private volatile String message;
+            private volatile Throwable cause;
 
             @Override
             public RuleResult snapshot() {
@@ -100,10 +100,10 @@ public class ExistsRule extends KeyBasedRule {
             private CompletableFuture<Result> evaluateFact() {
                 return cancellation.resolveFact(factsResolver, getKey())
                         .thenCompose(fact -> cancellation.evaluateAsync(() -> {
+                            evaluatedFact = fact;
                             result = Optional.ofNullable(fact)
                                     .map(f -> Result.VALID)
                                     .orElse(Result.INVALID);
-                            evaluatedFact = fact;
                             return result;
                         }, executor))
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
@@ -113,9 +113,9 @@ public class ExistsRule extends KeyBasedRule {
                             if (cancellation.isCancelled()) {
                                 return result;
                             }
-                            result = Result.FAILED;
                             message = throwable.getMessage();
                             cause = throwable;
+                            result = Result.FAILED;
                             return result;
                         });
             }
