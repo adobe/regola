@@ -15,7 +15,6 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
-import com.adobe.abp.regola.utils.futures.FutureUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -171,7 +170,7 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
             private CompletableFuture<Result> evaluateFact() {
                 if (!SUPPORTED_OPERATORS.contains(getOperator())) {
-                    return FutureUtils.supplyAsync(() -> {
+                    return cancellation.evaluateAsync(() -> {
                                 result = Result.OPERATION_NOT_SUPPORTED;
                                 return result;
                             }, executor)
@@ -181,7 +180,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                 }
 
                 return resolveFact(cancellation, factsResolver, getKey())
-                        .thenCompose(fact -> FutureUtils.supplyAsync(() -> handleSuccess(fact), executor))
+                        .thenCompose(fact -> cancellation.evaluateAsync(
+                                () -> handleSuccess(fact), executor))
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
                                 .filter(action -> !cancellation.isCancelled())
                                 .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))

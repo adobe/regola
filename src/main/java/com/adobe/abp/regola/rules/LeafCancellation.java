@@ -13,8 +13,10 @@ package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
+import com.adobe.abp.regola.utils.futures.FutureUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 /**
@@ -51,6 +53,10 @@ final class LeafCancellation {
             started.cancel(false);
         }
         return started;
+    }
+
+    CompletableFuture<Result> evaluateAsync(Supplier<Result> evaluation, Executor executor) {
+        return FutureUtils.supplyAsync(() -> cancelled ? Result.MAYBE : evaluation.get(), executor);
     }
 
     boolean isCancelled() {

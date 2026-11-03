@@ -15,7 +15,6 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
-import com.adobe.abp.regola.utils.futures.FutureUtils;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -113,7 +112,8 @@ public class SetRule<T> extends OperatorBasedRule {
             private CompletableFuture<Result> evaluateFact() {
                 if (getOperator() == Operator.IN) {
                     return resolveFact(cancellation, factsResolver, getKey())
-                            .thenCompose(fact -> FutureUtils.supplyAsync(() -> handleSuccess(f -> checkIn(f), fact), executor))
+                            .thenCompose(fact -> cancellation.evaluateAsync(
+                                    () -> handleSuccess(f -> checkIn(f), fact), executor))
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
                                     .filter(action -> !cancellation.isCancelled())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
@@ -122,14 +122,15 @@ public class SetRule<T> extends OperatorBasedRule {
 
                 if (getOperator() == Operator.INTERSECTS) {
                     return resolveFact(cancellation, factsResolver, getKey())
-                            .thenCompose(fact -> FutureUtils.supplyAsync(() -> handleSuccess(f -> checkIntersects(f), fact), executor))
+                            .thenCompose(fact -> cancellation.evaluateAsync(
+                                    () -> handleSuccess(f -> checkIntersects(f), fact), executor))
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
                                     .filter(action -> !cancellation.isCancelled())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
                 }
 
-                return FutureUtils.supplyAsync(() -> {
+                return cancellation.evaluateAsync(() -> {
                             result = Result.OPERATION_NOT_SUPPORTED;
                             return result;
                         }, executor)
