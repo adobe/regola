@@ -935,6 +935,9 @@ In this particular example, this action will be executed when the rule is evalua
 If the evaluation fails, for example because a fact cannot be fetched, `result` is `FAILED`,
 `throwable` is the failure and `ruleResult` carries its message and cause.
 
+The callback must not wait on that evaluation's `status` future, because the callback runs before
+that future is completed.
+
 If `onCompletion` throws an exception, the rule keeps its result. If the rule had not failed, its
 `status` future completes exceptionally with the exception. Otherwise the exception is added as
 suppressed to the cause of the failure.
@@ -958,7 +961,12 @@ For each evaluation of a rule, exactly one of the two callbacks runs:
 You can set either callback, both or neither.
 
 `onCancellation` runs on the thread that calls `cancel()`, before the rule's `status` future is
-cancelled. If it throws an exception:
+cancelled.
+
+The callback must not wait on that evaluation's `status` future, because the callback runs before
+that future is completed.
+
+If it throws an exception:
 - when you called `cancel()` yourself, the exception is thrown from `cancel()`.
 - when an AND, OR or NOT cancels its subrules, the exception is ignored and the remaining subrules
   are still cancelled.
