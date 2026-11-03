@@ -23,8 +23,9 @@ import java.util.function.Supplier;
 /**
  * Cancellation state of a single fact-based rule evaluation.
  *
- * <p>An evaluation is pending until it either commits to an outcome or is cancelled, whichever
- * happens first. Rules {@link #commit() commit} before publishing a result or a failure, so a
+ * <p>An evaluation is pending until it either commits to an outcome or is stopped, whichever
+ * happens first. A stopped evaluation is skipped if it was never started, cancelled otherwise.
+ * Rules {@link #commit() commit} before publishing a result or a failure, so a
  * cancellation that loses the race has no effect and a cancellation that wins it leaves the rule
  * reporting {@link Result#MAYBE}.</p>
  *
@@ -35,9 +36,10 @@ import java.util.function.Supplier;
  */
 final class LeafCancellation {
 
-    private enum State { PENDING, COMMITTED, CANCELLED }
+    private enum State { PENDING, COMMITTED, SKIPPED, CANCELLED }
 
     private final AtomicReference<State> state = new AtomicReference<>(State.PENDING);
+    private volatile boolean started;
     private volatile CompletableFuture<?> fact;
     private volatile CompletableFuture<Result> status;
 
@@ -47,24 +49,25 @@ final class LeafCancellation {
             return resolved;
         }
         fact = resolved;
-        if (isCancelled()) {
+        if (isStopped()) {
             resolved.cancel(false);
         }
         return resolved;
     }
 
     CompletableFuture<Result> start(Supplier<CompletableFuture<Result>> evaluation) {
-        if (isCancelled()) {
+        started = true;
+        if (isStopped()) {
             final CompletableFuture<Result> notStarted = new CompletableFuture<>();
             notStarted.cancel(false);
             return notStarted;
         }
-        final CompletableFuture<Result> started = evaluation.get();
-        status = started;
-        if (isCancelled()) {
-            started.cancel(false);
+        final CompletableFuture<Result> evaluating = evaluation.get();
+        status = evaluating;
+        if (isStopped()) {
+            evaluating.cancel(false);
         }
-        return started;
+        return evaluating;
     }
 
     CompletableFuture<Result> evaluateAsync(Supplier<Result> evaluation, Executor executor) {
@@ -87,16 +90,30 @@ final class LeafCancellation {
         return state.compareAndSet(State.PENDING, State.COMMITTED) || state.get() == State.COMMITTED;
     }
 
-    private boolean isCancelled() {
+    boolean isSkipped() {
+        return state.get() == State.SKIPPED;
+    }
+
+    boolean isCancelled() {
         return state.get() == State.CANCELLED;
     }
 
-    void cancel() {
-        if (!state.compareAndSet(State.PENDING, State.CANCELLED)) {
-            return; // already committed to an outcome, or already cancelled
+    private boolean isStopped() {
+        return isSkipped() || isCancelled();
+    }
+
+    /**
+     * Stop the evaluation unless it has already committed to an outcome or been stopped.
+     *
+     * @return {@code true} if this call stopped the evaluation
+     */
+    boolean cancel() {
+        if (!state.compareAndSet(State.PENDING, started ? State.CANCELLED : State.SKIPPED)) {
+            return false; // already committed to an outcome, or already stopped
         }
         // Cancel the status first: cancelling the fact completes the status chain synchronously.
         Optional.ofNullable(status).ifPresent(s -> s.cancel(false));
         Optional.ofNullable(fact).ifPresent(f -> f.cancel(false));
+        return true;
     }
 }

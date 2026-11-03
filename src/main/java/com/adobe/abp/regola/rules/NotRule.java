@@ -103,6 +103,8 @@ public class NotRule extends UnaryBooleanRule {
                             .map(EvaluationResult::snapshot)
                             .orElse(null);
                     r.ignored = isIgnore();
+                    r.skipped = isSkipped();
+                    r.cancelled = isCancelled();
                 }).build();
             }
         };

@@ -141,9 +141,12 @@ class LeafRuleCancellationTest {
         final var status = evaluationResult.status();
         evaluationResult.cancel();
 
+        final var snapshot = evaluationResult.snapshot();
         assertThat(fact).isCancelled();
         assertThat(status).isCancelled();
-        assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
+        assertThat(snapshot.getResult()).isEqualTo(Result.MAYBE);
+        assertThat(snapshot.isCancelled()).isTrue();
+        assertThat(snapshot.isSkipped()).isFalse();
         assertThat(actionCalls).hasValue(0);
     }
 
@@ -177,8 +180,11 @@ class LeafRuleCancellationTest {
         final var evaluationResult = rule.evaluate(resolver);
         evaluationResult.cancel();
 
+        final var snapshot = evaluationResult.snapshot();
         assertThat(evaluationResult.status()).isCancelled();
-        assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
+        assertThat(snapshot.getResult()).isEqualTo(Result.MAYBE);
+        assertThat(snapshot.isSkipped()).isTrue();
+        assertThat(snapshot.isCancelled()).isFalse();
         verifyNoInteractions(resolver);
     }
 
@@ -194,7 +200,10 @@ class LeafRuleCancellationTest {
         final var result = evaluationResult.status().join();
         evaluationResult.cancel();
 
-        assertThat(evaluationResult.snapshot().getResult()).isEqualTo(result);
+        final var snapshot = evaluationResult.snapshot();
+        assertThat(snapshot.getResult()).isEqualTo(result);
+        assertThat(snapshot.isCancelled()).isFalse();
+        assertThat(snapshot.isSkipped()).isFalse();
         assertThat(evaluationResult.status().join()).isEqualTo(result);
     }
 

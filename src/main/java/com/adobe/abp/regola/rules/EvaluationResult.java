@@ -37,9 +37,10 @@ public interface EvaluationResult {
      *
      * <p>Cancellation is best effort. If the result is still pending, {@link #status()} completes
      * exceptionally with a {@link java.util.concurrent.CancellationException}, {@link #snapshot()}
-     * keeps reporting {@link Result#MAYBE} and the rule's action does not run. Work that is already
-     * running, such as an in-flight data fetch, is not interrupted. Cancelling a completed evaluation
-     * has no effect on its result.</p>
+     * keeps reporting {@link Result#MAYBE}, marked as {@link RuleResult#isSkipped() skipped} if the
+     * evaluation was never started and {@link RuleResult#isCancelled() cancelled} otherwise, and the
+     * rule's action does not run. Work that is already running, such as an in-flight data fetch,
+     * is not interrupted. Cancelling a completed evaluation has no effect on its result.</p>
      *
      * <p>Boolean rules call this on their subrules once their own result is decided. The default
      * implementation does nothing.</p>

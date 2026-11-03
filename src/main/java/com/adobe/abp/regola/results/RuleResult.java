@@ -26,6 +26,8 @@ public class RuleResult {
     private String message;
     private Throwable cause;
     private boolean ignored;
+    private boolean skipped;
+    private boolean cancelled;
 
     public Result getResult() {
         return result;
@@ -83,6 +85,36 @@ public class RuleResult {
         this.ignored = ignored;
     }
 
+    /**
+     * Whether the rule was never started because its result was no longer needed, for example when
+     * an AND or OR was decided before reaching it. A skipped rule reports {@link Result#MAYBE}.
+     *
+     * @return {@code true} if the rule was skipped
+     */
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+    public boolean isSkipped() {
+        return skipped;
+    }
+
+    public void setSkipped(boolean skipped) {
+        this.skipped = skipped;
+    }
+
+    /**
+     * Whether the rule was started but cancelled before deciding its result, because the result
+     * was no longer needed. A cancelled rule reports {@link Result#MAYBE}.
+     *
+     * @return {@code true} if the rule was cancelled
+     */
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    public void setCancelled(boolean cancelled) {
+        this.cancelled = cancelled;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -97,7 +129,9 @@ public class RuleResult {
                 Objects.equals(description, that.description) &&
                 Objects.equals(message, that.message) &&
                 Objects.equals(cause, that.cause) &&
-                Objects.equals(ignored, that.ignored);
+                Objects.equals(ignored, that.ignored) &&
+                skipped == that.skipped &&
+                cancelled == that.cancelled;
     }
 
     @Override
@@ -113,6 +147,8 @@ public class RuleResult {
                 ", description='" + description + '\'' +
                 ", message='" + message + '\'' +
                 ", ignored=" + ignored +
+                ", skipped=" + skipped +
+                ", cancelled=" + cancelled +
                 '}';
     }
 
@@ -129,6 +165,8 @@ public class RuleResult {
         public String message;
         public Throwable cause;
         public boolean ignored;
+        public boolean skipped;
+        public boolean cancelled;
 
         private RuleResultBuilder() {
             super(RuleResultBuilder::new);
@@ -143,6 +181,8 @@ public class RuleResult {
             ruleResult.setMessage(message);
             ruleResult.setCause(cause);
             ruleResult.setIgnored(ignored);
+            ruleResult.setSkipped(skipped);
+            ruleResult.setCancelled(cancelled);
             return ruleResult;
         }
     }

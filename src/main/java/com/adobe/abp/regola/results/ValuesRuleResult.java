@@ -108,6 +108,8 @@ public class ValuesRuleResult<T> extends RuleResult {
                 ", description='" + getDescription() + '\'' +
                 ", message='" + getMessage() + '\'' +
                 ", ignored=" + isIgnored() +
+                ", skipped=" + isSkipped() +
+                ", cancelled=" + isCancelled() +
                 ", key='" + key + '\'' +
                 ", operator=" + operator +
                 ", expectedValue=" + expectedValue +
@@ -130,6 +132,8 @@ public class ValuesRuleResult<T> extends RuleResult {
         public String message;
         public Throwable cause;
         public boolean ignored;
+        public boolean skipped;
+        public boolean cancelled;
         public Operator operator;
         public String key;
         public T expectedValue;
@@ -150,6 +154,8 @@ public class ValuesRuleResult<T> extends RuleResult {
             ruleResult.setMessage(message);
             ruleResult.setCause(cause);
             ruleResult.setIgnored(ignored);
+            ruleResult.setSkipped(skipped);
+            ruleResult.setCancelled(cancelled);
             ruleResult.setOperator(operator);
             ruleResult.setKey(key);
             ruleResult.setExpectedValue(expectedValue);

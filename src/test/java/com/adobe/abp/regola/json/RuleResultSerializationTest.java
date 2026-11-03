@@ -50,6 +50,26 @@ public class RuleResultSerializationTest {
     }
 
     @Test
+    void serializeSkippedAndCancelledOnlyWhenSet() throws IOException {
+        final var cancelled = ValuesRuleResult.builder().with(r -> {
+            r.type = "some-type";
+            r.key = "some-key";
+            r.result = Result.MAYBE;
+            r.cancelled = true;
+        }).build();
+
+        final var cancelledJson = mapper.writeValueAsString(cancelled);
+
+        assertThat(mapper.writeValueAsString(valuesRuleResult))
+                .doesNotContain("skipped", "cancelled");
+        assertThat(cancelledJson)
+                .contains("\"cancelled\":true")
+                .doesNotContain("skipped");
+        assertThat(mapper.readValue(cancelledJson, RuleResult.class))
+                .isEqualTo(cancelled);
+    }
+
+    @Test
     void serializeMultiaryRuleResult() throws IOException {
         final var ruleResult = MultiaryBooleanRuleResult.builder().with(r -> {
             r.type = "Multiary-type";

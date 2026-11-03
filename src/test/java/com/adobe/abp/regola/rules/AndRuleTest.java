@@ -258,6 +258,8 @@ class AndRuleTest {
 
             assertThat(status).isCancelled();
             assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
+            assertThat(evaluationResult.snapshot().isCancelled()).isTrue();
+            assertThat(evaluationResult.snapshot().isSkipped()).isFalse();
             assertThat(actionCalls).hasValue(0);
             assertThat(running.isCancelled()).isTrue();
         }
@@ -272,7 +274,32 @@ class AndRuleTest {
             evaluationResult.cancel();
 
             assertThat(evaluationResult.status()).isCancelled();
+            assertThat(evaluationResult.snapshot().isSkipped()).isTrue();
+            assertThat(evaluationResult.snapshot().isCancelled()).isFalse();
             assertThat(subrule.getStarts()).isZero();
+        }
+
+        @Test
+        @DisplayName("mark running subrules as cancelled and unstarted subrules as skipped once decided")
+        void marksCancelledAndSkippedSubrules() {
+            when(resolver.resolveFact("running")).thenReturn(new CompletableFuture<>());
+            rule.setRules(List.of(
+                    new StringRule("running", Operator.EQUALS, "value"),
+                    new ImmediateRule("deciding", Result.INVALID),
+                    new StringRule("unstarted", Operator.EQUALS, "value")));
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status()).isCompletedWithValue(Result.INVALID);
+            assertThat(evaluationResult.snapshot())
+                    .isInstanceOfSatisfying(MultiaryBooleanRuleResult.class,
+                            ruleResult -> assertThat(ruleResult.getRules())
+                                    .extracting(RuleResult::getResult, RuleResult::isCancelled, RuleResult::isSkipped)
+                                    .containsExactlyInAnyOrder(
+                                            Tuple.tuple(Result.MAYBE, true, false),
+                                            Tuple.tuple(Result.INVALID, false, false),
+                                            Tuple.tuple(Result.MAYBE, false, true)));
+            assertThat(evaluationResult.snapshot().isCancelled()).isFalse();
         }
 
         @Test
