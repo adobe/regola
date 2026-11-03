@@ -110,7 +110,13 @@ public class OrRule extends MultiaryBooleanRule {
 
             @Override
             protected void cancelSubrules() {
-                results.forEach(EvaluationResult::cancel);
+                results.forEach(LockingEvaluationResult::cancelQuietly);
+            }
+
+            @Override
+            protected void afterCancellation() {
+                Optional.ofNullable(getAction())
+                        .ifPresent(action -> action.onCancellation(snapshot()));
             }
 
             @Override

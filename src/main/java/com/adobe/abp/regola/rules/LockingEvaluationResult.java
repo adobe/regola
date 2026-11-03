@@ -232,6 +232,18 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     }
 
     /**
+     * Cancel a child evaluation, ignoring any failure so that it cannot prevent the remaining
+     * children from being cancelled.
+     */
+    static void cancelQuietly(EvaluationResult child) {
+        try {
+            child.cancel();
+        } catch (RuntimeException ignored) {
+            // Cancellation is best effort.
+        }
+    }
+
+    /**
      * Start a child evaluation, reporting a synchronous failure as an exceptionally completed future
      * so that the caller handles it exactly like an asynchronous one.
      */
@@ -278,6 +290,16 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     protected void cancelSubrules() {
     }
 
+    /**
+     * Handle a cancellation that stopped this evaluation.
+     *
+     * <p>Called at most once, instead of {@link #afterCompletion(Result, Throwable)}, after the
+     * subrules are cancelled and before the status future is cancelled. The default implementation
+     * is a no-op; boolean rules use this hook to dispatch {@link Action#onCancellation(RuleResult)}.
+     */
+    protected void afterCancellation() {
+    }
+
     private void cancelSubrulesQuietly() {
         try {
             cancelSubrules();
@@ -315,9 +337,9 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
      *
      * <p>If the evaluation is still pending, it stops without a result: the status future completes
      * exceptionally with a {@link java.util.concurrent.CancellationException}, {@link #getResult()}
-     * stays {@link Result#MAYBE}, {@link #afterCompletion(Result, Throwable)} is not called and
-     * subrules are cancelled through {@link #cancelSubrules()}. If a result has already been decided,
-     * this method has no effect.</p>
+     * stays {@link Result#MAYBE}, subrules are cancelled through {@link #cancelSubrules()} and
+     * {@link #afterCancellation()} is called instead of {@link #afterCompletion(Result, Throwable)}.
+     * If a result has already been decided, this method has no effect.</p>
      */
     @Override
     public final void cancel() {
@@ -336,6 +358,10 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
             lock.unlock();
         }
         cancelSubrulesQuietly();
-        status.cancel(false);
+        try {
+            afterCancellation();
+        } finally {
+            status.cancel(false);
+        }
     }
 }

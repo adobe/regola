@@ -14,10 +14,13 @@ package com.adobe.abp.regola.rules;
 import com.adobe.abp.regola.actions.Action;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
+import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -98,9 +101,11 @@ class LeafRuleCancellationTest {
         when(resolver.resolveFact(KEY))
                 .thenReturn(CompletableFuture.completedFuture(1));
         final var actionCalls = new AtomicInteger();
+        final List<RuleResult> cancellations = new CopyOnWriteArrayList<>();
         final var rule = ruleFactory.apply(tasks::add);
         rule.setAction(new Action()
-                .setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet()));
+                .setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet())
+                .setOnCancellation(cancellations::add));
         final var evaluationResult = rule.evaluate(resolver);
         final var status = evaluationResult.status();
 
@@ -123,6 +128,10 @@ class LeafRuleCancellationTest {
                 .isNull();
         assertThat(actionCalls)
                 .hasValue(0);
+        assertThat(cancellations)
+                .singleElement()
+                .extracting(RuleResult::isCancelled)
+                .isEqualTo(true);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -134,8 +143,11 @@ class LeafRuleCancellationTest {
         when(resolver.resolveFact(KEY)).thenReturn(fact);
         when(resolver.supportsCancellation()).thenReturn(true);
         final var actionCalls = new AtomicInteger();
+        final List<RuleResult> cancellations = new CopyOnWriteArrayList<>();
         final var rule = ruleSupplier.get();
-        rule.setAction(new Action().setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet()));
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet())
+                .setOnCancellation(cancellations::add));
 
         final var evaluationResult = rule.evaluate(resolver);
         final var status = evaluationResult.status();
@@ -148,6 +160,7 @@ class LeafRuleCancellationTest {
         assertThat(snapshot.isCancelled()).isTrue();
         assertThat(snapshot.isSkipped()).isFalse();
         assertThat(actionCalls).hasValue(0);
+        assertThat(cancellations).containsExactly(snapshot);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -175,7 +188,9 @@ class LeafRuleCancellationTest {
     @DisplayName("should not resolve the fact when cancelled before being started")
     void cancelBeforeStart(String name, Supplier<Rule> ruleSupplier) {
         final var resolver = mock(FactsResolver.class);
+        final List<RuleResult> cancellations = new CopyOnWriteArrayList<>();
         final var rule = ruleSupplier.get();
+        rule.setAction(new Action().setOnCancellation(cancellations::add));
 
         final var evaluationResult = rule.evaluate(resolver);
         evaluationResult.cancel();
@@ -185,6 +200,7 @@ class LeafRuleCancellationTest {
         assertThat(snapshot.getResult()).isEqualTo(Result.MAYBE);
         assertThat(snapshot.isSkipped()).isTrue();
         assertThat(snapshot.isCancelled()).isFalse();
+        assertThat(cancellations).containsExactly(snapshot);
         verifyNoInteractions(resolver);
     }
 
@@ -194,7 +210,9 @@ class LeafRuleCancellationTest {
     void cancelAfterCompletion(String name, Supplier<Rule> ruleSupplier) {
         final var resolver = mock(FactsResolver.class);
         when(resolver.resolveFact(KEY)).thenReturn(CompletableFuture.completedFuture("value"));
+        final var cancellations = new AtomicInteger();
         final var rule = ruleSupplier.get();
+        rule.setAction(new Action().setOnCancellation(ruleResult -> cancellations.incrementAndGet()));
 
         final var evaluationResult = rule.evaluate(resolver);
         final var result = evaluationResult.status().join();
@@ -205,6 +223,7 @@ class LeafRuleCancellationTest {
         assertThat(snapshot.isCancelled()).isFalse();
         assertThat(snapshot.isSkipped()).isFalse();
         assertThat(evaluationResult.status().join()).isEqualTo(result);
+        assertThat(cancellations).hasValue(0);
     }
 
     @ParameterizedTest(name = "{0}")

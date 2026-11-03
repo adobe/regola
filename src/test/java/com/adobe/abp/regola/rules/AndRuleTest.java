@@ -249,8 +249,11 @@ class AndRuleTest {
         void cancelPendingEvaluation() {
             final var running = new PendingRule("running");
             final var actionCalls = new AtomicInteger();
+            final var cancellations = new AtomicInteger();
             rule.setRules(List.of(running));
-            rule.setAction(new Action().setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet()));
+            rule.setAction(new Action()
+                    .setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet())
+                    .setOnCancellation(ruleResult -> cancellations.incrementAndGet()));
 
             final var evaluationResult = rule.evaluate(resolver);
             final var status = evaluationResult.status();
@@ -261,6 +264,7 @@ class AndRuleTest {
             assertThat(evaluationResult.snapshot().isCancelled()).isTrue();
             assertThat(evaluationResult.snapshot().isSkipped()).isFalse();
             assertThat(actionCalls).hasValue(0);
+            assertThat(cancellations).hasValue(1);
             assertThat(running.isCancelled()).isTrue();
         }
 
@@ -300,6 +304,26 @@ class AndRuleTest {
                                             Tuple.tuple(Result.INVALID, false, false),
                                             Tuple.tuple(Result.MAYBE, false, true)));
             assertThat(evaluationResult.snapshot().isCancelled()).isFalse();
+        }
+
+        @Test
+        @DisplayName("keep cancelling subrules when a cancellation callback throws")
+        void cancellationCallbackFailureDoesNotStopCancellingSiblings() {
+            when(resolver.resolveFact("first")).thenReturn(new CompletableFuture<>());
+            when(resolver.resolveFact("second")).thenReturn(new CompletableFuture<>());
+            final var first = new StringRule("first", Operator.EQUALS, "value");
+            first.setAction(new Action().setOnCancellation(ruleResult -> {
+                throw new IllegalStateException("boom");
+            }));
+            final var secondCancellations = new AtomicInteger();
+            final var second = new StringRule("second", Operator.EQUALS, "value");
+            second.setAction(new Action().setOnCancellation(ruleResult -> secondCancellations.incrementAndGet()));
+            rule.setRules(List.of(first, second, new ImmediateRule("deciding", Result.INVALID)));
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status()).isCompletedWithValue(Result.INVALID);
+            assertThat(secondCancellations).hasValue(1);
         }
 
         @Test

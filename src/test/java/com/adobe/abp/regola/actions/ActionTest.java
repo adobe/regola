@@ -60,7 +60,7 @@ class ActionTest {
                 .setDescription("abc")
                 .setOnCompletion((result, throwable, ruleResult) -> { /* do nothing */ });
 
-        assertThat(action.toString()).isEqualTo("Action{description='abc', onCompletion=true}");
+        assertThat(action.toString()).isEqualTo("Action{description='abc', onCompletion=true, onCancellation=false}");
     }
 
 }

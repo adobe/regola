@@ -160,7 +160,8 @@ is decided:
 - subrules that have not been started yet are skipped.
 - subrules that are still running are cancelled.
 
-Skipped and cancelled subrules report `MAYBE` and their actions do not run. Their `RuleResult` tells
+Skipped and cancelled subrules report `MAYBE` and run their action's `onCancellation` callback
+instead of `onCompletion` (see [Cancellation](#cancellation)). Their `RuleResult` tells
 them apart from a rule that genuinely evaluated to `MAYBE`: `isSkipped()` is `true` for a subrule
 that was never started, `isCancelled()` for one that was started but not decided. In JSON, `skipped`
 and `cancelled` only appear when `true`. With asynchronous data
@@ -177,7 +178,7 @@ evaluationResult.cancel();
 ```
 
 `status` then completes with a `CancellationException`, the rules that had not completed report
-`MAYBE` and are marked as skipped or cancelled, and their actions do not run. Cancelling an
+`MAYBE` and are marked as skipped or cancelled, and their actions run `onCancellation`. Cancelling an
 evaluation that has already completed has no effect.
 
 ##### What cancellation stops, and what it does not
@@ -190,7 +191,7 @@ Stopped:
 - fact fetches still waiting for a thread on the `SimpleFactsResolver` executor: the data fetcher is
   not called.
 - rule checks still waiting for a thread on a leaf rule's executor.
-- actions of cancelled rules.
+- `onCompletion` callbacks of cancelled rules: `onCancellation` runs instead.
 
 Not stopped:
 - a data fetch that has already started. It runs to completion and its result is still cached and
@@ -873,7 +874,22 @@ rule.setAction(action);
 
 In this particular example, this action will be executed when the rule is evaluated and the result is `VALID`.
 
-An action does not run for a subrule that was skipped or cancelled by [short-circuiting](#short-circuiting).
+### Cancellation
+
+When a rule is skipped or cancelled, for example by [short-circuiting](#short-circuiting), its
+action runs `onCancellation` instead of `onCompletion`. The callback receives the rule's
+`RuleResult`, with `isSkipped()` or `isCancelled()` set:
+
+```java
+var action = new Action()
+    .setOnCompletion((result, throwable, ruleResult) -> audit(ruleResult))
+    .setOnCancellation(ruleResult -> audit(ruleResult));
+```
+
+Exactly one of the two callbacks runs for each evaluation that is decided or cancelled. Either
+callback may be left unset. `onCancellation` runs on the thread that cancels the rule, before the
+rule's `status` future is cancelled. If it throws, the exception propagates to whoever called
+`cancel()`; a boolean rule cancelling its subrules ignores it and still cancels the remaining ones.
 
 ### Chaining
 
