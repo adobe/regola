@@ -65,7 +65,14 @@ public class RuleResultSerializationTest {
         assertThat(cancelledJson)
                 .contains("\"skipped\":false", "\"cancelled\":true");
         assertThat(mapper.readValue(cancelledJson, RuleResult.class))
-                .isEqualTo(cancelled);
+                .isEqualTo(cancelled)
+                .hasSameHashCodeAs(cancelled);
+        assertThat(cancelled.hashCode())
+                .isNotEqualTo(ValuesRuleResult.builder().with(r -> {
+                    r.type = "some-type";
+                    r.key = "some-key";
+                    r.result = Result.MAYBE;
+                }).build().hashCode());
     }
 
     @Test

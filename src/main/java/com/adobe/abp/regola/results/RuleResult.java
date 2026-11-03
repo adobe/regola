@@ -134,7 +134,7 @@ public class RuleResult {
 
     @Override
     public int hashCode() {
-        return Objects.hash(result, type, message);
+        return Objects.hash(result, type, description, message, cause, ignored, skipped, cancelled);
     }
 
     @Override
