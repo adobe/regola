@@ -17,54 +17,80 @@ import com.adobe.abp.regola.utils.futures.FutureUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /**
  * Cancellation state of a single fact-based rule evaluation.
  *
+ * <p>An evaluation is pending until it either commits to an outcome or is cancelled, whichever
+ * happens first. Rules {@link #commit() commit} before publishing a result or a failure, so a
+ * cancellation that loses the race has no effect and a cancellation that wins it leaves the rule
+ * reporting {@link Result#MAYBE}.</p>
+ *
  * <p>Cancelling cancels the future returned by the {@link FactsResolver}, so that a resolver can
- * skip a fetch that has not started yet, and the rule's status future. Rules use
- * {@link #isCancelled()} to skip their action and keep reporting {@link Result#MAYBE}.</p>
+ * skip a fetch that has not started yet, and the rule's status future. Rules also commit before
+ * running their action, so the action of a cancelled rule never runs.</p>
  */
 final class LeafCancellation {
 
-    private volatile boolean cancelled;
+    private enum State { PENDING, COMMITTED, CANCELLED }
+
+    private final AtomicReference<State> state = new AtomicReference<>(State.PENDING);
     private volatile CompletableFuture<?> fact;
     private volatile CompletableFuture<Result> status;
 
     CompletableFuture<Object> resolveFact(FactsResolver factsResolver, String key) {
         final CompletableFuture<Object> resolved = factsResolver.resolveFact(key);
         fact = resolved;
-        if (cancelled) {
+        if (isCancelled()) {
             resolved.cancel(false);
         }
         return resolved;
     }
 
     CompletableFuture<Result> start(Supplier<CompletableFuture<Result>> evaluation) {
-        if (cancelled) {
+        if (isCancelled()) {
             final CompletableFuture<Result> notStarted = new CompletableFuture<>();
             notStarted.cancel(false);
             return notStarted;
         }
         final CompletableFuture<Result> started = evaluation.get();
         status = started;
-        if (cancelled) {
+        if (isCancelled()) {
             started.cancel(false);
         }
         return started;
     }
 
     CompletableFuture<Result> evaluateAsync(Supplier<Result> evaluation, Executor executor) {
-        return FutureUtils.supplyAsync(() -> cancelled ? Result.MAYBE : evaluation.get(), executor);
+        return FutureUtils.supplyAsync(() -> evaluate(evaluation), executor);
     }
 
-    boolean isCancelled() {
-        return cancelled;
+    /**
+     * Run the rule check unless the evaluation was cancelled first.
+     */
+    Result evaluate(Supplier<Result> evaluation) {
+        return commit() ? evaluation.get() : Result.MAYBE;
+    }
+
+    /**
+     * Commit to an outcome, after which cancellation has no effect.
+     *
+     * @return {@code false} if the evaluation was cancelled first
+     */
+    boolean commit() {
+        return state.compareAndSet(State.PENDING, State.COMMITTED) || state.get() == State.COMMITTED;
+    }
+
+    private boolean isCancelled() {
+        return state.get() == State.CANCELLED;
     }
 
     void cancel() {
-        cancelled = true;
+        if (!state.compareAndSet(State.PENDING, State.CANCELLED)) {
+            return; // already committed to an outcome, or already cancelled
+        }
         // Cancel the status first: cancelling the fact completes the status chain synchronously.
         Optional.ofNullable(status).ifPresent(s -> s.cancel(false));
         Optional.ofNullable(fact).ifPresent(f -> f.cancel(false));

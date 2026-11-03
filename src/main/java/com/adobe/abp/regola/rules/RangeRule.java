@@ -175,7 +175,7 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                                 return result;
                             }, executor)
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> !cancellation.isCancelled())
+                                    .filter(action -> cancellation.commit())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
                 }
 
@@ -183,7 +183,7 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                         .thenCompose(fact -> cancellation.evaluateAsync(
                                 () -> handleSuccess(fact), executor))
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .filter(action -> !cancellation.isCancelled())
+                                .filter(action -> cancellation.commit())
                                 .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                         .exceptionally(this::handleFailure);
             }
@@ -230,7 +230,7 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
             }
 
             private Result handleFailure(Throwable throwable) {
-                if (cancellation.isCancelled()) {
+                if (!cancellation.commit()) {
                     return result;
                 }
                 message = throwable.getMessage();

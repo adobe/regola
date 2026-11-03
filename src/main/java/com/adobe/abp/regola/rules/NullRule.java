@@ -107,10 +107,10 @@ public class NullRule extends KeyBasedRule {
                             return result;
                         }, executor))
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .filter(action -> !cancellation.isCancelled())
+                                .filter(action -> cancellation.commit())
                                 .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                         .exceptionally(throwable -> {
-                            if (cancellation.isCancelled()) {
+                            if (!cancellation.commit()) {
                                 return result;
                             }
                             message = throwable.getMessage();
