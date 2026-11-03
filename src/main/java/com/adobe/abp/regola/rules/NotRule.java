@@ -103,10 +103,14 @@ public class NotRule extends UnaryBooleanRule {
             @Override
             public RuleResult snapshot() {
                 final Result capturedResult = getResult();
+                final Throwable failure = getFailure();
                 return UnaryBooleanRuleResult.builder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
                     r.result = capturedResult;
+                    r.message = capturedResult == Result.FAILED && failure != null
+                            ? failure.getMessage() : null;
+                    r.cause = capturedResult == Result.FAILED ? failure : null;
                     r.rule = Optional.ofNullable(notResult)
                             .map(EvaluationResult::snapshot)
                             .orElse(null);

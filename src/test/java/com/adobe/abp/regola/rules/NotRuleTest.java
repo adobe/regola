@@ -384,15 +384,23 @@ class NotRuleTest {
             final var subrule = new ExceptionRule("rule-2");
             rule.setRule(subrule);
 
-            var throwableAtomicReference = new AtomicReference<Throwable>();
-            var action = new Action().setOnCompletion((result, throwable, ruleResult) -> throwableAtomicReference.set(throwable));
-            rule.setAction(action);
+            final var failure = new AtomicReference<Throwable>();
+            final var completedRuleResult = new AtomicReference<RuleResult>();
+            rule.setAction(new Action()
+                    .setOnCompletion((result, throwable, ruleResult) -> {
+                        failure.set(throwable);
+                        completedRuleResult.set(ruleResult);
+                    }));
 
             final var evaluationResult = rule.evaluate(resolver);
+
             assertThat(evaluationResult.status())
                     .failsWithin(Duration.ofMillis(200));
-
-            assertThat(throwableAtomicReference.get()).hasMessageContaining("Intentionally failing this rule with an exception");
+            assertThat(failure.get())
+                    .hasMessageContaining("Intentionally failing this rule with an exception");
+            assertThat(completedRuleResult.get())
+                    .extracting(RuleResult::getMessage, RuleResult::getCause)
+                    .containsExactly(failure.get().getMessage(), failure.get());
         }
     }
 

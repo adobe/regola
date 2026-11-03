@@ -45,6 +45,10 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     // value. All in-lock writes already establish happens-before; volatile covers stray external pollers.
     private volatile Result result = Result.MAYBE;
 
+    // Winning completeExceptionally cause. Written under the lock before result so a snapshot
+    // that observes FAILED also observes this. Null when completion is normal, even if FAILED.
+    private volatile Throwable failure;
+
     private final CompletableFuture<Result> status = new CompletableFuture<>();
 
     // Guards one-time startup. Written under the lock.
@@ -74,6 +78,18 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
      */
     protected final Result getResult() {
         return result;
+    }
+
+    /**
+     * Return the cause of an exceptional completion, or {@code null} if none was recorded.
+     *
+     * <p>Safe to call from any thread because the field is {@code volatile}. Stays {@code null}
+     * when a child returns {@link Result#FAILED} without a throwable.
+     *
+     * @return the failure, or {@code null}
+     */
+    protected final Throwable getFailure() {
+        return failure;
     }
 
     /**
@@ -168,7 +184,9 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     /**
      * Complete exceptionally.
      *
-     * <p>Publishes {@link Result#FAILED} before the future resolves.
+     * <p>Publishes {@link Result#FAILED} and retains {@code t} before the future resolves, so
+     * {@link #snapshot()} can report the same message and cause as
+     * {@link #afterCompletion(Result, Throwable)}.
      *
      * @param t the throwable that caused the failure
      */
@@ -177,6 +195,7 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
         lock.lock();
         try {
             if (!terminated) {
+                failure = t;
                 result = Result.FAILED;
                 terminated = true;
                 dispatch = true;

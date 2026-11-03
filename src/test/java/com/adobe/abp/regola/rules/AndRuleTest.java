@@ -226,8 +226,13 @@ class AndRuleTest {
 
             assertThat(evaluationResult.status())
                     .isCompletedExceptionally();
-            assertThat(evaluationResult.snapshot().getResult())
+            final var snapshot = evaluationResult.snapshot();
+            assertThat(snapshot.getResult())
                     .isEqualTo(Result.FAILED);
+            assertThat(snapshot.getCause())
+                    .isInstanceOf(NullPointerException.class);
+            assertThat(snapshot.getMessage())
+                    .isEqualTo(snapshot.getCause().getMessage());
         }
     }
 
@@ -948,15 +953,23 @@ class AndRuleTest {
             final var ruleTwo = new ExceptionRule("rule-2");
             rule.setRules(List.of(ruleOne, ruleTwo));
 
-            var throwableAtomicReference = new AtomicReference<Throwable>();
-            var action = new Action().setOnCompletion((result, throwable, ruleResult) -> throwableAtomicReference.set(throwable));
-            rule.setAction(action);
+            final var failure = new AtomicReference<Throwable>();
+            final var completedRuleResult = new AtomicReference<RuleResult>();
+            rule.setAction(new Action()
+                    .setOnCompletion((result, throwable, ruleResult) -> {
+                        failure.set(throwable);
+                        completedRuleResult.set(ruleResult);
+                    }));
 
             final var evaluationResult = rule.evaluate(resolver);
+
             assertThat(evaluationResult.status())
                     .failsWithin(Duration.ofMillis(200));
-
-            assertThat(throwableAtomicReference.get()).hasMessageContaining("Intentionally failing this rule with an exception");
+            assertThat(failure.get())
+                    .hasMessageContaining("Intentionally failing this rule with an exception");
+            assertThat(completedRuleResult.get())
+                    .extracting(RuleResult::getMessage, RuleResult::getCause)
+                    .containsExactly(failure.get().getMessage(), failure.get());
         }
     }
 }
