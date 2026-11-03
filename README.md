@@ -225,6 +225,9 @@ Stopped:
 - subrules that have not been started yet.
 - data fetches waiting for a thread on the `SimpleFactsResolver` executor. The data fetcher is not
   called.
+- a data fetch that has not been requested yet, including one that would have run on the calling
+  thread because the resolver has no executor. Once `cancel()` has returned, that fetch is not
+  started.
 - rule checks that have not run yet:
   - `SetRule`, `RangeRule`, `ExistsRule` and `NullRule` wait for a thread on the rule's executor to
     run their check. The check is skipped if the rule is cancelled while it waits.
@@ -234,10 +237,8 @@ Stopped:
 
 Not stopped:
 - a data fetch that has already started. It runs to the end, and its result is still cached and
-  shared with the other rules that need the same data.
-- data fetches when the `SimpleFactsResolver` has no executor. The data fetcher is called straight
-  away on the thread that needs the fact, so the fetch has always started by the time a
-  cancellation arrives.
+  shared with the other rules that need the same data. `cancel()` waits for that call to return;
+  it does not interrupt it.
 - a rule check or an action that is already running.
 
 ##### Custom facts resolvers and rules

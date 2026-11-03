@@ -44,7 +44,9 @@ import java.util.function.Supplier;
  *
  * <p>Cancelling also cancels the future returned by the {@link FactsResolver}, if it
  * {@link FactsResolver#supportsCancellation() supports it}, so that the resolver can skip a fetch
- * that has not started yet.</p>
+ * that has not started yet. The start and the stop exclude each other: otherwise a synchronous
+ * resolver, which runs inside {@link #resolveFact()} before its future can be cancelled, could
+ * still be invoked after {@link #cancel()} has returned.</p>
  *
  * @param <T> type of the fact
  */
@@ -56,6 +58,7 @@ abstract class LeafEvaluationResult<T> implements EvaluationResult {
     private final FactsResolver factsResolver;
     private final AtomicReference<State> state = new AtomicReference<>(State.NEW);
     private final CompletableFuture<Result> status = new CompletableFuture<>();
+    private final Object lock = new Object();
     private volatile LeafOutcome<T> outcome = LeafOutcome.pending();
     private volatile CompletableFuture<?> fact;
 
@@ -107,7 +110,17 @@ abstract class LeafEvaluationResult<T> implements EvaluationResult {
     @Override
     public final CompletableFuture<Result> status() {
         if (state.compareAndSet(State.NEW, State.STARTED)) {
-            startEvaluation().whenComplete(this::complete);
+            final CompletableFuture<LeafOutcome<T>> evaluation;
+            synchronized (lock) {
+                if (state.get() == State.STARTED) {
+                    evaluation = startEvaluation();
+                } else {
+                    evaluation = null;
+                }
+            }
+            if (evaluation != null) {
+                evaluation.whenComplete(this::complete);
+            }
         }
         return status;
     }
@@ -117,15 +130,19 @@ abstract class LeafEvaluationResult<T> implements EvaluationResult {
      */
     @Override
     public final void cancel() {
-        if (!stop()) {
-            return;
+        final CompletableFuture<?> pendingFact;
+        synchronized (lock) {
+            if (!stop()) {
+                return;
+            }
+            pendingFact = fact;
         }
         try {
             Optional.ofNullable(rule.getAction())
                     .ifPresent(action -> action.onCancellation(snapshot()));
         } finally {
             status.cancel(false);
-            Optional.ofNullable(fact)
+            Optional.ofNullable(pendingFact)
                     .ifPresent(f -> f.cancel(false));
         }
     }
@@ -136,15 +153,21 @@ abstract class LeafEvaluationResult<T> implements EvaluationResult {
      * @return the fact
      */
     final CompletableFuture<Object> resolveFact() {
-        final CompletableFuture<Object> resolved = factsResolver.resolveFact(rule.getKey());
-        if (!factsResolver.supportsCancellation()) {
+        synchronized (lock) {
+            if (state.get() != State.STARTED) {
+                final CompletableFuture<Object> cancelled = new CompletableFuture<>();
+                cancelled.cancel(false);
+                return cancelled;
+            }
+            final CompletableFuture<Object> resolved = factsResolver.resolveFact(rule.getKey());
+            if (factsResolver.supportsCancellation()) {
+                fact = resolved;
+                if (state.get() == State.CANCELLED) {
+                    resolved.cancel(false);
+                }
+            }
             return resolved;
         }
-        fact = resolved;
-        if (state.get() == State.CANCELLED) {
-            resolved.cancel(false);
-        }
-        return resolved;
     }
 
     /**
