@@ -24,6 +24,7 @@ import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
 import com.adobe.abp.regola.mockrules.ImmediateRule;
 import com.adobe.abp.regola.mockrules.MockRule;
+import com.adobe.abp.regola.mockrules.PendingRule;
 import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
@@ -226,6 +227,65 @@ class AndRuleTest {
 
             assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.VALID);
             assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("when cancelling should")
+    class CancellationTest {
+
+        @Test
+        @DisplayName("cancel running subrules once the result is decided")
+        void cancelsRunningSubrulesOnceDecided() {
+            final var running = new PendingRule("running");
+            rule.setRules(List.of(running, new ImmediateRule("rule-2", Result.INVALID)));
+
+            assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.INVALID);
+            assertThat(running.isCancelled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("stop a pending evaluation without a result and without running its action")
+        void cancelPendingEvaluation() {
+            final var running = new PendingRule("running");
+            final var actionCalls = new AtomicInteger();
+            rule.setRules(List.of(running));
+            rule.setAction(new Action().setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet()));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            final var status = evaluationResult.status();
+            evaluationResult.cancel();
+
+            assertThat(status).isCancelled();
+            assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
+            assertThat(actionCalls).hasValue(0);
+            assertThat(running.isCancelled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("not start subrules when cancelled before being started")
+        void cancelBeforeStart() {
+            final var subrule = new PendingRule("subrule");
+            rule.setRules(List.of(subrule));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.cancel();
+
+            assertThat(evaluationResult.status()).isCancelled();
+            assertThat(subrule.getStarts()).isZero();
+        }
+
+        @Test
+        @DisplayName("keep the decided result when cancelled after completion")
+        void cancelAfterCompletion() {
+            rule.setRules(List.of(new ImmediateRule("rule-1", Result.VALID)));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.status().join();
+            evaluationResult.cancel();
+
+            assertThat(evaluationResult.status()).isCompletedWithValue(Result.VALID);
+            assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.VALID);
         }
     }
 

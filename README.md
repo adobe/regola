@@ -157,12 +157,47 @@ an OR by its first VALID subrule. Ignored subrules never decide the result.
 
 Subrules are started in the order they are listed, without waiting for one another. Once the result
 is decided:
-- subrules that have not been started yet are skipped. They report `MAYBE` and their actions do not run.
-- subrules that are already running are not cancelled, but their results no longer change the outcome.
+- subrules that have not been started yet are skipped.
+- subrules that are still running are cancelled.
 
-Skipping therefore only happens when a subrule completes while the AND/OR is still starting its
-siblings. With asynchronous data fetchers, all subrules are usually started before any of them
-completes.
+Skipped and cancelled subrules report `MAYBE` and their actions do not run. With asynchronous data
+fetchers, all subrules are usually started before any of them completes, so most of the saving comes
+from cancellation.
+
+You can also cancel a whole evaluation, for example when the caller no longer needs the result:
+
+```java
+final var evaluationResult = rule.evaluate(factsResolver);
+final var status = evaluationResult.status();
+// ...
+evaluationResult.cancel();
+```
+
+`status` then completes with a `CancellationException`, the rules that had not completed report
+`MAYBE`, and their actions do not run. Cancelling an evaluation that has already completed has no
+effect.
+
+##### What cancellation stops, and what it does not
+
+Cancellation is best effort. It stops work that has not started yet; it does not interrupt work
+that is already running.
+
+Stopped:
+- subrules that have not been started yet.
+- fact fetches still waiting for a thread on the `SimpleFactsResolver` executor: the data fetcher is
+  not called.
+- actions of cancelled rules.
+
+Not stopped:
+- a data fetch that has already started. It runs to completion and its result is still cached and
+  shared with other rules that need the same data.
+- fetches made without a `SimpleFactsResolver` executor. They start on the calling thread as soon as a
+  rule needs the fact, so there is nothing left to skip.
+- a rule check or an action that is already running when the cancellation arrives.
+
+If you write your own `FactsResolver`, return a new future from each `resolveFact` call, because rules
+cancel the future they receive. If you write your own rule, override `EvaluationResult.cancel()` to
+stop its work; the default does nothing.
 
 A subrule whose fact cannot be fetched evaluates to `FAILED`, whether the data fetcher returns a
 failed future or throws.
@@ -791,7 +826,7 @@ rule.setAction(action);
 
 In this particular example, this action will be executed when the rule is evaluated and the result is `VALID`.
 
-An action does not run for a subrule that was skipped by [short-circuiting](#short-circuiting).
+An action does not run for a subrule that was skipped or cancelled by [short-circuiting](#short-circuiting).
 
 ### Chaining
 

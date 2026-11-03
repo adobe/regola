@@ -51,6 +51,7 @@ public class ExistsRule extends KeyBasedRule {
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
+            private final LeafCancellation cancellation = new LeafCancellation();
             private Result result = Result.MAYBE;
             private Object evaluatedFact;
             private String message;
@@ -73,7 +74,16 @@ public class ExistsRule extends KeyBasedRule {
 
             @Override
             public CompletableFuture<Result> status() {
-                return factsResolver.resolveFact(getKey())
+                return cancellation.start(this::evaluateFact);
+            }
+
+            @Override
+            public void cancel() {
+                cancellation.cancel();
+            }
+
+            private CompletableFuture<Result> evaluateFact() {
+                return cancellation.resolveFact(factsResolver, getKey())
                         .thenCompose(fact -> FutureUtils.supplyAsync(() -> {
                             result = Optional.ofNullable(fact)
                                     .map(f -> Result.VALID)
@@ -82,8 +92,12 @@ public class ExistsRule extends KeyBasedRule {
                             return result;
                         }, executor))
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
+                                .filter(action -> !cancellation.isCancelled())
                                 .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                         .exceptionally(throwable -> {
+                            if (cancellation.isCancelled()) {
+                                return result;
+                            }
                             result = Result.FAILED;
                             message = throwable.getMessage();
                             cause = throwable;

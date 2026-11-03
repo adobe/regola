@@ -65,6 +65,7 @@ public class SetRule<T> extends OperatorBasedRule {
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
+            private final LeafCancellation cancellation = new LeafCancellation();
             private Result result = Result.MAYBE;
             private T evaluatedFact;
             private Collection<T> evaluatedFacts;
@@ -90,18 +91,29 @@ public class SetRule<T> extends OperatorBasedRule {
 
             @Override
             public CompletableFuture<Result> status() {
+                return cancellation.start(this::evaluateFact);
+            }
+
+            @Override
+            public void cancel() {
+                cancellation.cancel();
+            }
+
+            private CompletableFuture<Result> evaluateFact() {
                 if (getOperator() == Operator.IN) {
-                    return resolveFact(factsResolver, getKey())
+                    return resolveFact(cancellation, factsResolver, getKey())
                             .thenCompose(fact -> FutureUtils.supplyAsync(() -> handleSuccess(f -> checkIn(f), fact), executor))
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
+                                    .filter(action -> !cancellation.isCancelled())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
                 }
 
                 if (getOperator() == Operator.INTERSECTS) {
-                    return resolveFact(factsResolver, getKey())
+                    return resolveFact(cancellation, factsResolver, getKey())
                             .thenCompose(fact -> FutureUtils.supplyAsync(() -> handleSuccess(f -> checkIntersects(f), fact), executor))
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
+                                    .filter(action -> !cancellation.isCancelled())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
                 }
@@ -111,6 +123,7 @@ public class SetRule<T> extends OperatorBasedRule {
                             return result;
                         }, executor)
                         .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
+                                .filter(action -> !cancellation.isCancelled())
                                 .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
             }
 
@@ -126,6 +139,9 @@ public class SetRule<T> extends OperatorBasedRule {
             }
 
             private Result handleFailure(Throwable throwable) {
+                if (cancellation.isCancelled()) {
+                    return result;
+                }
                 result = Result.FAILED;
                 message = throwable.getMessage();
                 cause = throwable;
@@ -164,8 +180,8 @@ public class SetRule<T> extends OperatorBasedRule {
     }
 
     @SuppressWarnings("unchecked")
-    private CompletableFuture<T> resolveFact(FactsResolver factsResolver, String key) {
-        return factsResolver.resolveFact(key)
+    private CompletableFuture<T> resolveFact(LeafCancellation cancellation, FactsResolver factsResolver, String key) {
+        return cancellation.resolveFact(factsResolver, key)
                 .thenApply(f -> {
                             if (f == null) {
                                 return null;

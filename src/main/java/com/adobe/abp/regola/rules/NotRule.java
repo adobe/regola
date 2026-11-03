@@ -81,6 +81,11 @@ public class NotRule extends UnaryBooleanRule {
             }
 
             @Override
+            protected void cancelSubrules() {
+                Optional.ofNullable(notResult).ifPresent(EvaluationResult::cancel);
+            }
+
+            @Override
             protected void afterCompletion(Result completedResult, Throwable throwable) {
                 Optional.ofNullable(getAction())
                         .ifPresent(action -> action.onCompletion(completedResult, throwable, snapshot()));

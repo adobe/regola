@@ -89,13 +89,36 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
         factFetchers.put(fact.getKey(), (Function<Object, Object>) fact.getFactFetcher());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Each call returns a new future, so cancelling it never affects other callers or a fetch
+     * shared through the data fetcher's cache. If the future is cancelled while its data fetch is
+     * still queued on the resolver executor, the data fetcher is not called. A fetch that has already
+     * started is not interrupted.</p>
+     */
     @Override
     public CompletableFuture<Object> resolveFact(String key) {
         final var dataSource = dataSourcesMap.getOrDefault(key, StandardDataSources.NONE);
         final var dataFetcher = dataFetchers.get(dataSource);
         if (dataFetcher != null) {
-            return fetch(dataFetcher)
+            if (executor == null) {
+                return fetchOnCallingThread(dataFetcher)
+                        .thenApply(data -> factFetchers.get(key).apply(data));
+            }
+
+            final CompletableFuture<CompletableFuture<Object>> fetchTask =
+                    FutureUtils.supplyAsync(() -> fetch(dataFetcher), executor);
+            final CompletableFuture<Object> fact = fetchTask
+                    .thenCompose(Function.identity())
                     .thenApply(data -> factFetchers.get(key).apply(data));
+            // A cancelled task that has not started yet never calls the data fetcher.
+            fact.whenComplete((data, throwable) -> {
+                if (fact.isCancelled()) {
+                    fetchTask.cancel(false);
+                }
+            });
+            return fact;
         } else {
             // If we cannot find a data fetcher, then attempt to solve the Fact using only the factFetcher with a null data object
             // Note that this may result in a NPE if the configured factFetcher for the 'key' is expecting a non-null data object.
@@ -106,16 +129,16 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
         }
     }
 
-    private CompletableFuture<?> fetch(DataFetcher<?, C> dataFetcher) {
-        if (executor == null) {
-            try {
-                return dataFetcher.fetch(context);
-            } catch (RuntimeException e) {
-                return CompletableFuture.failedFuture(e);
-            }
+    private CompletableFuture<Object> fetchOnCallingThread(DataFetcher<?, C> dataFetcher) {
+        try {
+            return fetch(dataFetcher);
+        } catch (RuntimeException e) {
+            return CompletableFuture.failedFuture(e);
         }
+    }
 
-        return FutureUtils.supplyAsync(() -> dataFetcher.fetch(context), executor)
-                .thenCompose(Function.identity());
+    @SuppressWarnings("unchecked")
+    private CompletableFuture<Object> fetch(DataFetcher<?, C> dataFetcher) {
+        return (CompletableFuture<Object>) dataFetcher.fetch(context);
     }
 }
