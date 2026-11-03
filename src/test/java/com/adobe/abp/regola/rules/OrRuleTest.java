@@ -24,6 +24,7 @@ import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
 import com.adobe.abp.regola.mockrules.ImmediateRule;
 import com.adobe.abp.regola.mockrules.MockRule;
+import com.adobe.abp.regola.mockrules.PendingRule;
 import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
@@ -570,6 +571,21 @@ class OrRuleTest {
 
             assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.INVALID);
             assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("when cancelling should")
+    class CancellationTest {
+
+        @Test
+        @DisplayName("cancel running subrules once the result is decided")
+        void cancelsRunningSubrulesOnceDecided() {
+            final var running = new PendingRule("running");
+            rule.setRules(List.of(running, new ImmediateRule("rule-2", Result.VALID)));
+
+            assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.VALID);
+            assertThat(running.isCancelled()).isTrue();
         }
     }
 

@@ -32,6 +32,10 @@ public interface FactsResolver {
     /**
      * Resolve a fact to a concrete data point
      *
+     * <p>Rules cancel the returned future once its value is no longer needed. Return a new future
+     * for each call, so that cancelling it does not affect other callers. Implementations may use
+     * the cancellation to skip work that has not started yet.</p>
+     *
      * @param key identifying the fact
      * @return data point
      */

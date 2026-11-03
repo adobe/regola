@@ -26,7 +26,8 @@ import java.util.function.Supplier;
  * <p>The class guarantees three non-obvious properties:
  * <ul>
  *   <li>{@link #startEvaluation()} runs at most once, on the first {@link #status()} call</li>
- *   <li>the published {@link Result} and the terminal status future never diverge</li>
+ *   <li>the published {@link Result} and the terminal status future never diverge, except that a
+ *       {@link #cancel() cancelled} evaluation keeps {@link Result#MAYBE}</li>
  *   <li>{@link #afterCompletion(Result, Throwable)} runs outside the lock but before the future resolves</li>
  * </ul>
  *
@@ -167,6 +168,7 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
      * <p>If {@link #afterCompletion(Result, Throwable)} fails, this method still resolves the future.
      */
     private void publishCompletion(Result completedResult, Throwable throwable) {
+        cancelSubrulesQuietly();
         try {
             afterCompletion(completedResult, throwable);
         } catch (Throwable callbackFailure) {
@@ -243,6 +245,25 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     protected void afterCompletion(Result completedResult, Throwable throwable) {
     }
 
+    /**
+     * Cancel subrule evaluations whose results are no longer needed.
+     *
+     * <p>Called once the evaluation reaches a terminal state, whether decided or cancelled, before
+     * {@link #afterCompletion(Result, Throwable)}. Implementations call
+     * {@link EvaluationResult#cancel()} on their subrule evaluations. The default implementation
+     * does nothing.</p>
+     */
+    protected void cancelSubrules() {
+    }
+
+    private void cancelSubrulesQuietly() {
+        try {
+            cancelSubrules();
+        } catch (RuntimeException ignored) {
+            // Cancellation is best effort and must not prevent this evaluation from completing.
+        }
+    }
+
     // ── Final implementation of the EvaluationResult contract ────────────────────────────────────
 
     @Override
@@ -252,7 +273,7 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
         try {
             if (!started) {
                 started = true;
-                shouldStart = true;
+                shouldStart = !terminated; // a cancelled evaluation is never started
             }
         } finally {
             lock.unlock();
@@ -265,5 +286,31 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
             }
         }
         return status;
+    }
+
+    /**
+     * Cancel this evaluation.
+     *
+     * <p>If the evaluation is still pending, it stops without a result: the status future completes
+     * exceptionally with a {@link java.util.concurrent.CancellationException}, {@link #getResult()}
+     * stays {@link Result#MAYBE} and {@link #afterCompletion(Result, Throwable)} is not called. In
+     * every case, subrules are cancelled through {@link #cancelSubrules()}.</p>
+     */
+    @Override
+    public final void cancel() {
+        boolean cancelStatus = false;
+        lock.lock();
+        try {
+            if (!terminated) {
+                terminated = true; // no callback can decide a result from now on
+                cancelStatus = true;
+            }
+        } finally {
+            lock.unlock();
+        }
+        cancelSubrulesQuietly();
+        if (cancelStatus) {
+            status.cancel(false);
+        }
     }
 }
