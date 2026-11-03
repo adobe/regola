@@ -91,6 +91,16 @@ class OrRuleTest {
         }).build();
     }
 
+    private MultiaryBooleanRuleResult buildInterimResult(
+            KeyBasedRule ruleOne, KeyBasedRule ruleTwo) {
+        return ruleResultBuilder.with(r -> {
+            r.result = Result.MAYBE;
+            r.rules = Set.of(
+                    buildRuleResult(ruleOne, Result.MAYBE, ruleOne.isIgnore()),
+                    buildRuleResult(ruleTwo, Result.MAYBE, ruleTwo.isIgnore()));
+        }).build();
+    }
+
     @Test
     @DisplayName("should have the expected OR type")
     void ruleHasExpectedType() {
@@ -110,7 +120,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -135,7 +145,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -161,7 +171,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -190,7 +200,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -215,7 +225,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -242,7 +252,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -267,7 +277,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -296,7 +306,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -331,7 +341,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -362,7 +372,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -477,7 +487,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -494,7 +504,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -587,6 +597,18 @@ class OrRuleTest {
             assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.VALID);
             assertThat(running.isCancelled()).isTrue();
         }
+
+        @Test
+        @DisplayName("cancel every rule of a nested subrule that was never started")
+        void cancelsSubtreeOfSkippedNestedRule() {
+            final var nestedLeaf = new PendingRule("nested");
+            rule.setRules(List.of(new ConstantRule(Result.VALID), new OrRule(List.of(nestedLeaf))));
+
+            rule.evaluate(resolver).status();
+
+            assertThat(nestedLeaf.isCancelled())
+                    .isTrue();
+        }
     }
 
     @Nested
@@ -602,7 +624,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -628,7 +650,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -648,7 +670,7 @@ class OrRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();

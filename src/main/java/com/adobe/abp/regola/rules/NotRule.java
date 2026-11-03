@@ -40,24 +40,27 @@ public class NotRule extends UnaryBooleanRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new LockingEvaluationResult() {
 
-            // The evaluated operand, published once in startEvaluation() before its callback is wired up.
-            private volatile EvaluationResult notResult;
+            private final Rule rule = getRule();
+
+            // Created up front, without starting it, so that cancelling this evaluation reaches the
+            // operand and snapshots report it even before status() is called.
+            private final EvaluationResult notResult =
+                    rule == null ? null : createSubrules(() -> rule.evaluate(factsResolver), null);
 
             @Override
             protected void startEvaluation() {
-                final Rule rule = getRule();
                 if (rule == null) {
                     // A missing operand is malformed configuration, not an empty-operand identity case.
                     completeExceptionally(new IllegalStateException("NOT rule requires a non-null operand rule"));
                     return;
                 }
 
-                final EvaluationResult evaluationResult = rule.evaluate(factsResolver);
-                notResult = evaluationResult; // safe publication before the callback below can fire
-
                 final boolean ignore = rule.isIgnore();
-                startChild(evaluationResult)
-                        .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
+                if (!isDone()) {
+                    startChild(notResult)
+                            .whenComplete((subresult, throwable) ->
+                                    evaluateSubresult(subresult, throwable, ignore));
+                }
             }
 
             private void evaluateSubresult(Result subresult, Throwable throwable, boolean ignore) {
@@ -99,13 +102,12 @@ public class NotRule extends UnaryBooleanRule {
 
             @Override
             public RuleResult snapshot() {
-                final EvaluationResult capturedNotResult = notResult;
                 final Result capturedResult = getResult();
                 return UnaryBooleanRuleResult.builder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
                     r.result = capturedResult;
-                    r.rule = Optional.ofNullable(capturedNotResult)
+                    r.rule = Optional.ofNullable(notResult)
                             .map(EvaluationResult::snapshot)
                             .orElse(null);
                     r.ignored = isIgnore();

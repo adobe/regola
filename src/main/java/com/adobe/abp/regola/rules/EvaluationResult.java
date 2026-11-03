@@ -43,6 +43,11 @@ public interface EvaluationResult {
      * instead of its completion callback. Work that is already running, such as an in-flight data
      * fetch, is not interrupted. Cancelling a completed evaluation has no effect on its result.</p>
      *
+     * <p>Once this method has stopped a pending evaluation, {@link #status()} must not start any
+     * work and should return a cancelled future, which may be one that was already cancelled.
+     * Boolean rules rely on this: a subrule can be cancelled by a concurrent callback just before
+     * they start it.</p>
+     *
      * <p>Boolean rules call this on their subrules once their own result is decided. The default
      * implementation does nothing.</p>
      */

@@ -43,20 +43,21 @@ public class AndRule extends MultiaryBooleanRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new LockingEvaluationResult() {
 
-            // Number of subrules still to report back. Accessed only inside decideUnderLock (under the lock).
-            private int rulesToEvaluate = getRules().size();
+            private final List<Rule> rules = getRules();
 
-            // Child results, published once in startEvaluation() before any callback is wired up.
-            private volatile List<EvaluationResult> results = List.of();
+            // Created up front, without starting them, so that cancelling this evaluation reaches
+            // every subrule and snapshots report the whole tree even before status() is called.
+            private final List<EvaluationResult> results = createSubrules(
+                    () -> rules.stream()
+                            .map(rule -> rule.evaluate(factsResolver))
+                            .collect(Collectors.toList()),
+                    List.of());
+
+            // Number of subrules still to report back. Accessed only inside decideUnderLock.
+            private int rulesToEvaluate = rules.size();
 
             @Override
             protected void startEvaluation() {
-                final List<Rule> rules = getRules();
-                final List<EvaluationResult> evaluated = rules.stream()
-                        .map(rule -> rule.evaluate(factsResolver))
-                        .collect(Collectors.toList());
-                results = evaluated; // safe publication before the callbacks below can fire
-
                 if (rules.isEmpty()) {
                     complete(Result.VALID); // empty conjunction is the identity ⇒ VALID
                     return;
@@ -68,7 +69,7 @@ public class AndRule extends MultiaryBooleanRule {
                 // Once a subrule has decided the result, the remaining subrules are not started.
                 for (int i = 0; i < rules.size() && !isDone(); i++) {
                     final boolean ignore = rules.get(i).isIgnore();
-                    startChild(evaluated.get(i))
+                    startChild(results.get(i))
                             .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
                 }
             }
@@ -108,13 +109,12 @@ public class AndRule extends MultiaryBooleanRule {
 
             @Override
             public RuleResult snapshot() {
-                final List<EvaluationResult> capturedResults = results;
                 final Result capturedResult = getResult();
                 return MultiaryBooleanRuleResult.builder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
                     r.result = capturedResult;
-                    r.rules = capturedResults.stream()
+                    r.rules = results.stream()
                             .map(EvaluationResult::snapshot)
                             .collect(Collectors.toSet());
                     r.ignored = isIgnore();

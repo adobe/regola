@@ -685,6 +685,11 @@ public class YourRule extends Rule {
 }
 ```
 
+If your rule does work that is worth stopping when its result is no longer needed (see
+[Short-circuiting](#short-circuiting)), also override `EvaluationResult.cancel()`. After `cancel()`,
+`status()` must not start any work and should return a cancelled future, because an AND or OR may
+cancel a subrule just before it starts it.
+
 2. (Optional) If you need to parse rules from Json, then you must extend the `RuleModule` as such:
 
 ```java

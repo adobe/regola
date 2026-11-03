@@ -20,6 +20,7 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.facts.SimpleFactsResolver;
 import com.adobe.abp.regola.mockdatafetchers.BlockingBeforeFutureDataFetcher;
 import com.adobe.abp.regola.mockdatafetchers.SynchronouslyFailingDataFetcher;
+import com.adobe.abp.regola.mockrules.BlockingStartRule;
 import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
 import com.adobe.abp.regola.mockrules.ImmediateRule;
@@ -30,6 +31,8 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +100,17 @@ class AndRuleTest {
         return ruleResultBuilder.with(r -> {
             r.result = result;
             r.rules = Set.of();
+        }).build();
+    }
+
+    private MultiaryBooleanRuleResult buildInterimResult(
+            KeyBasedRule ruleOne,
+            KeyBasedRule ruleTwo) {
+        return ruleResultBuilder.with(r -> {
+            r.result = Result.MAYBE;
+            r.rules = Set.of(
+                    buildRuleResult(ruleOne, Result.MAYBE, ruleOne.isIgnore()),
+                    buildRuleResult(ruleTwo, Result.MAYBE, ruleTwo.isIgnore()));
         }).build();
     }
 
@@ -190,6 +204,19 @@ class AndRuleTest {
 
             assertThat(rule.evaluate(throwingResolver).status()).isCompletedWithValue(Result.VALID);
             assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("fail through its status when a subrule cannot be evaluated")
+        void unevaluableSubruleFailsStatus() {
+            rule.setRules(Arrays.asList(new ImmediateRule("rule-1", Result.VALID), null));
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status())
+                    .isCompletedExceptionally();
+            assertThat(evaluationResult.snapshot().getResult())
+                    .isEqualTo(Result.FAILED);
         }
     }
 
@@ -327,6 +354,77 @@ class AndRuleTest {
         }
 
         @Test
+        @DisplayName("report every rule of a nested subrule that was never started as skipped")
+        void reportsSubtreeOfSkippedNestedRule() {
+            rule.setRules(List.of(
+                    new ConstantRule(Result.INVALID),
+                    new AndRule(List.of(new ExistsRule("nested")))));
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status())
+                    .isCompletedWithValue(Result.INVALID);
+            assertThat(nestedRuleResults(evaluationResult.snapshot()))
+                    .extracting(RuleResult::getResult, RuleResult::isSkipped)
+                    .containsExactly(Tuple.tuple(Result.MAYBE, true));
+        }
+
+        @Test
+        @DisplayName("run the cancellation action of every rule of a nested subrule never started")
+        void cancelsSubtreeOfSkippedNestedRule() {
+            final var cancellations = new AtomicInteger();
+            final var nestedLeaf = new ExistsRule("nested");
+            nestedLeaf.setAction(new Action()
+                    .setOnCancellation(ruleResult -> cancellations.incrementAndGet()));
+            rule.setRules(List.of(
+                    new ConstantRule(Result.INVALID),
+                    new AndRule(List.of(nestedLeaf))));
+
+            rule.evaluate(resolver).status();
+
+            assertThat(cancellations)
+                    .hasValue(1);
+        }
+
+        @Test
+        @DisplayName("skip subrules not yet started when cancelled while starting its subrules")
+        void cancelWhileStartingSkipsRemainingSubrules() throws Exception {
+            final var cancelledSnapshot = new AtomicReference<RuleResult>();
+            final var firstStarting = new CountDownLatch(1);
+            final var releaseFirst = new CountDownLatch(1);
+            final var second = new PendingRule("second");
+            final var first = new BlockingStartRule("first", firstStarting, releaseFirst);
+            rule.setRules(List.of(first, second));
+            rule.setAction(new Action().setOnCancellation(cancelledSnapshot::set));
+            final var evaluationResult = rule.evaluate(resolver);
+            final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+            try {
+                final var starting = executor.submit(evaluationResult::status);
+                assertThat(firstStarting.await(5, TimeUnit.SECONDS))
+                        .isTrue();
+                evaluationResult.cancel();
+                releaseFirst.countDown();
+                starting.get(5, TimeUnit.SECONDS);
+            } finally {
+                releaseFirst.countDown();
+                executor.shutdownNow();
+            }
+
+            assertThat(second.getStarts())
+                    .isZero();
+            assertThat(second.isCancelled())
+                    .isTrue();
+            assertThat(cancelledSnapshot.get())
+                    .isInstanceOfSatisfying(MultiaryBooleanRuleResult.class,
+                            ruleResult -> assertThat(ruleResult.getRules())
+                                    .extracting(RuleResult::getType)
+                                    .containsExactlyInAnyOrder(
+                                            "BLOCKING_START_RULE",
+                                            "PENDING_RULE"));
+        }
+
+        @Test
         @DisplayName("keep the decided result when cancelled after completion")
         void cancelAfterCompletion() {
             rule.setRules(List.of(new ImmediateRule("rule-1", Result.VALID)));
@@ -337,6 +435,15 @@ class AndRuleTest {
 
             assertThat(evaluationResult.status()).isCompletedWithValue(Result.VALID);
             assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.VALID);
+        }
+
+        private Collection<RuleResult> nestedRuleResults(RuleResult ruleResult) {
+            return ((MultiaryBooleanRuleResult) ruleResult).getRules()
+                    .stream()
+                    .filter(MultiaryBooleanRuleResult.class::isInstance)
+                    .map(nested -> ((MultiaryBooleanRuleResult) nested).getRules())
+                    .findFirst()
+                    .orElseThrow();
         }
     }
 
@@ -353,7 +460,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -381,7 +488,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -410,7 +517,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -438,7 +545,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -467,7 +574,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -491,7 +598,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -518,7 +625,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -546,7 +653,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -646,7 +753,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -663,7 +770,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -681,7 +788,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -703,7 +810,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -729,7 +836,7 @@ class AndRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = buildRuleResult(ruleResultBuilder, Result.MAYBE);
+            final var interimResult = buildInterimResult(ruleOne, ruleTwo);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
