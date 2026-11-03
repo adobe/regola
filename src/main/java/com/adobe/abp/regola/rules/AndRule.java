@@ -116,7 +116,7 @@ public class AndRule extends MultiaryBooleanRule {
                     r.result = capturedResult;
                     r.rules = results.stream()
                             .map(EvaluationResult::snapshot)
-                            .collect(Collectors.toSet());
+                            .collect(Collectors.toList());
                     r.ignored = isIgnore();
                     r.skipped = isSkipped();
                     r.cancelled = isCancelled();
