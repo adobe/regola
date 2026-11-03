@@ -28,8 +28,9 @@ import java.util.function.Supplier;
  * cancellation that loses the race has no effect and a cancellation that wins it leaves the rule
  * reporting {@link Result#MAYBE}.</p>
  *
- * <p>Cancelling cancels the future returned by the {@link FactsResolver}, so that a resolver can
- * skip a fetch that has not started yet, and the rule's status future. Rules also commit before
+ * <p>Cancelling cancels the rule's status future and, if the {@link FactsResolver}
+ * {@link FactsResolver#supportsCancellation() supports it}, the future it returned, so that the
+ * resolver can skip a fetch that has not started yet. Rules also commit before
  * running their action, so the action of a cancelled rule never runs.</p>
  */
 final class LeafCancellation {
@@ -42,6 +43,9 @@ final class LeafCancellation {
 
     CompletableFuture<Object> resolveFact(FactsResolver factsResolver, String key) {
         final CompletableFuture<Object> resolved = factsResolver.resolveFact(key);
+        if (!factsResolver.supportsCancellation()) {
+            return resolved;
+        }
         fact = resolved;
         if (isCancelled()) {
             resolved.cancel(false);
