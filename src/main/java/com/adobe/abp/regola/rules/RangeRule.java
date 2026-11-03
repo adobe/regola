@@ -137,10 +137,10 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
             private final LeafCancellation cancellation = new LeafCancellation();
-            private Result result = Result.MAYBE;
-            private T evaluatedFact;
-            private String message;
-            private Throwable cause;
+            private volatile Result result = Result.MAYBE;
+            private volatile T evaluatedFact;
+            private volatile String message;
+            private volatile Throwable cause;
 
             @Override
             public RuleResult snapshot() {
@@ -233,9 +233,9 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                 if (cancellation.isCancelled()) {
                     return result;
                 }
-                result = Result.FAILED;
                 message = throwable.getMessage();
                 cause = throwable;
+                result = Result.FAILED;
                 return result;
             }
         };

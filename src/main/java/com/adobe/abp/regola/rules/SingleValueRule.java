@@ -62,11 +62,11 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
             private final LeafCancellation cancellation = new LeafCancellation();
-            private Result result = Result.MAYBE;
-            private T evaluatedFact;
-            private Collection<T> evaluatedFacts;
-            private String message;
-            private Throwable cause;
+            private volatile Result result = Result.MAYBE;
+            private volatile T evaluatedFact;
+            private volatile Collection<T> evaluatedFacts;
+            private volatile String message;
+            private volatile Throwable cause;
 
             @Override
             public RuleResult snapshot() {
@@ -99,8 +99,9 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                 if (getSingleFactOperators().contains(getOperator())) {
                     return resolveFact(cancellation, factsResolver, getKey())
                             .thenApply(fact -> {
-                                result = check(fact);
+                                final Result checkedResult = check(fact);
                                 evaluatedFact = fact;
+                                result = checkedResult;
                                 return result;
                             })
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
@@ -110,8 +111,9 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                 } else if (getSetFactOperators().contains(getOperator())) {
                     return resolveSetFact(cancellation, factsResolver, getKey())
                             .thenApply(factsSet -> {
-                                result = check(factsSet);
+                                final Result checkedResult = check(factsSet);
                                 evaluatedFacts = factsSet;
+                                result = checkedResult;
                                 return result;
                             })
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
@@ -133,9 +135,9 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                 if (cancellation.isCancelled()) {
                     return result;
                 }
-                result = Result.FAILED;
                 message = throwable.getMessage();
                 cause = throwable;
+                result = Result.FAILED;
                 return result;
             }
         };

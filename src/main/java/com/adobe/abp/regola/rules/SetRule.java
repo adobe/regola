@@ -76,11 +76,11 @@ public class SetRule<T> extends OperatorBasedRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new EvaluationResult() {
             private final LeafCancellation cancellation = new LeafCancellation();
-            private Result result = Result.MAYBE;
-            private T evaluatedFact;
-            private Collection<T> evaluatedFacts;
-            private String message;
-            private Throwable cause;
+            private volatile Result result = Result.MAYBE;
+            private volatile T evaluatedFact;
+            private volatile Collection<T> evaluatedFacts;
+            private volatile String message;
+            private volatile Throwable cause;
 
             @Override
             public RuleResult snapshot() {
@@ -141,12 +141,13 @@ public class SetRule<T> extends OperatorBasedRule {
 
             @SuppressWarnings("unchecked")
             private Result handleSuccess(Function<T, Result> checkFunction, T fact) {
-                result = checkFunction.apply(fact);
+                final Result checkedResult = checkFunction.apply(fact);
                 if (fact instanceof Collection) {
                     evaluatedFacts = (Collection<T>) fact;
                 } else {
                     evaluatedFact = fact;
                 }
+                result = checkedResult;
                 return result;
             }
 
@@ -154,9 +155,9 @@ public class SetRule<T> extends OperatorBasedRule {
                 if (cancellation.isCancelled()) {
                     return result;
                 }
-                result = Result.FAILED;
                 message = throwable.getMessage();
                 cause = throwable;
+                result = Result.FAILED;
                 return result;
             }
         };
