@@ -91,7 +91,6 @@ public class RuleResult {
      *
      * @return {@code true} if the rule was skipped
      */
-    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public boolean isSkipped() {
         return skipped;
     }
@@ -106,7 +105,6 @@ public class RuleResult {
      *
      * @return {@code true} if the rule was cancelled
      */
-    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public boolean isCancelled() {
         return cancelled;
     }

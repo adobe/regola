@@ -168,9 +168,8 @@ each other to finish. When the result becomes known, the remaining subrules are 
 | Already finished                       | Nothing: it keeps its result   | neither                   |
 
 A skipped or cancelled subrule reports `MAYBE`, because its result was never decided. The flags
-tell it apart from a subrule that really evaluated to `MAYBE`. In JSON, `"skipped": true` and
-`"cancelled": true` are only written when set, so results of rules that ran look the same as
-before.
+tell it apart from a subrule that really evaluated to `MAYBE`. In JSON, they are written as
+`"skipped"` and `"cancelled"`.
 
 If a skipped or cancelled subrule has an action, its `onCancellation` callback runs instead of
 `onCompletion` (see [Cancellation](#cancellation)).
@@ -980,11 +979,15 @@ The following is an example of a result (pretty printed in json) returned upon e
   "type": "AND",
   "description": "Example of a Composite Rule", // Optional, can be added to any rule in the tree
   "ignored": false,
+  "skipped": false,
+  "cancelled": false,
   "rules": [
     {
       "result": "VALID",
       "type": "STRING",
       "ignored": false,
+      "skipped": false,
+      "cancelled": false,
       "operator": "EQUALS",
       "key": "foo",
       "expectedValue": "bar",
@@ -994,11 +997,15 @@ The following is an example of a result (pretty printed in json) returned upon e
       "result": "VALID",
       "type": "OR",
       "ignored": false,
+      "skipped": false,
+      "cancelled": false,
       "rules": [
         {
           "result": "VALID",
           "type": "EXISTS",
           "ignored": false,
+          "skipped": false,
+          "cancelled": false,
           "key": "waz",
           "expectedValue": "<any>", // <any> is a special keyword matching any actual value for the EXISTS rule
           "actualValue": "wazab"
@@ -1007,10 +1014,11 @@ The following is an example of a result (pretty printed in json) returned upon e
           "result": "MAYBE",
           "type": "NUMBER",
           "ignored": false,
+          "skipped": true, // the OR was already VALID, so this rule was never evaluated and has no actual value
+          "cancelled": false,
           "operator": "EQUALS",
           "key": "foobar",
-          "expectedValue": 21,
-          "skipped": true // the OR was already VALID, so this rule was never evaluated and has no actual value
+          "expectedValue": 21
         }
       ]
     }
