@@ -32,12 +32,26 @@ public interface FactsResolver {
     /**
      * Resolve a fact to a concrete data point
      *
-     * <p>Rules cancel the returned future once its value is no longer needed. Return a new future
-     * for each call, so that cancelling it does not affect other callers. Implementations may use
-     * the cancellation to skip work that has not started yet.</p>
+     * <p>If {@link #supportsCancellation()} returns {@code true}, rules cancel the returned future
+     * once its value is no longer needed.</p>
      *
      * @param key identifying the fact
      * @return data point
      */
     CompletableFuture<Object> resolveFact(String key);
+
+    /**
+     * Whether rules may cancel the futures returned by {@link #resolveFact(String)} once their value
+     * is no longer needed.
+     *
+     * <p>Return {@code true} only if each {@link #resolveFact(String)} call returns a new future, so
+     * that cancelling it does not affect other callers. Implementations may then use the
+     * cancellation to skip work that has not started yet. The default is {@code false}: rules
+     * stop waiting for an unneeded fact but leave its future untouched.</p>
+     *
+     * @return {@code true} if rules may cancel the returned futures
+     */
+    default boolean supportsCancellation() {
+        return false;
+    }
 }

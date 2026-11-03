@@ -92,6 +92,16 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
     /**
      * {@inheritDoc}
      *
+     * @return {@code true}: each {@link #resolveFact(String)} call returns a new future
+     */
+    @Override
+    public boolean supportsCancellation() {
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * <p>Each call returns a new future, so cancelling it never affects other callers or a fetch
      * shared through the data fetcher's cache. If the future is cancelled while its data fetch is
      * still queued on the resolver executor, the data fetcher is not called. A fetch that has already

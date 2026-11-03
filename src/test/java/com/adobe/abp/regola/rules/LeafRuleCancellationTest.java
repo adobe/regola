@@ -132,6 +132,7 @@ class LeafRuleCancellationTest {
         final var fact = new CompletableFuture<Object>();
         final var resolver = mock(FactsResolver.class);
         when(resolver.resolveFact(KEY)).thenReturn(fact);
+        when(resolver.supportsCancellation()).thenReturn(true);
         final var actionCalls = new AtomicInteger();
         final var rule = ruleSupplier.get();
         rule.setAction(new Action().setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet()));
@@ -144,6 +145,26 @@ class LeafRuleCancellationTest {
         assertThat(status).isCancelled();
         assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
         assertThat(actionCalls).hasValue(0);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should leave the fact untouched when the resolver does not support cancellation")
+    void cancelWithResolverNotSupportingCancellation(String name, Supplier<Rule> ruleSupplier) {
+        final var sharedFact = new CompletableFuture<Object>();
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY)).thenReturn(sharedFact);
+
+        final var cancelled = ruleSupplier.get().evaluate(resolver);
+        final var cancelledStatus = cancelled.status();
+        cancelled.cancel();
+        final var other = ruleSupplier.get().evaluate(resolver);
+        final var otherStatus = other.status();
+        sharedFact.complete("value");
+
+        assertThat(cancelledStatus).isCancelled();
+        assertThat(sharedFact).isCompletedWithValue("value");
+        assertThat(otherStatus.join()).isNotEqualTo(Result.MAYBE);
     }
 
     @ParameterizedTest(name = "{0}")

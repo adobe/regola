@@ -196,9 +196,12 @@ Not stopped:
   rule needs the fact, so there is nothing left to skip.
 - a rule check or an action that is already running when the cancellation arrives.
 
-If you write your own `FactsResolver`, return a new future from each `resolveFact` call, because rules
-cancel the future they receive. If you write your own rule, override `EvaluationResult.cancel()` to
-stop its work; the default does nothing.
+Rules cancel the future returned by a `FactsResolver` only if its `supportsCancellation()` returns
+`true`, as `SimpleFactsResolver` does. If you write your own `FactsResolver`, it keeps working
+unchanged: by default rules stop waiting for an unneeded fact but leave its future untouched, so a
+future shared between callers is never cancelled. Override `supportsCancellation()` to return `true`
+only if each `resolveFact` call returns a new future. If you write your own rule, override
+`EvaluationResult.cancel()` to stop its work; the default does nothing.
 
 A subrule whose fact cannot be fetched evaluates to `FAILED`, whether the data fetcher returns a
 failed future or throws.
