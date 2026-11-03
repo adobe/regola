@@ -232,6 +232,24 @@ class SetRuleTest {
         }
 
         @Test
+        @DisplayName("evaluate as failed if fact type does not match the values")
+        void factTypeDoesNotMatchValues() {
+            integerRule.setOperator(Operator.IN);
+            integerRule.setValues(Set.of(1, 2, 3));
+
+            when(resolver.resolveFact(INTEGER_RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "not-an-integer"));
+
+            var evaluation = integerRule.evaluate(resolver);
+
+            assertThat(evaluation.status().join())
+                    .isEqualTo(Result.FAILED);
+            assertThat(evaluation.snapshot().getCause())
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Fact must match type of the rule's values");
+        }
+
+        @Test
         @DisplayName("evaluate IN as valid if the fact matches")
         void inFactIsValid() {
             integerRule.setOperator(Operator.IN);

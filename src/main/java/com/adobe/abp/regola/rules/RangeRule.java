@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import jdk.jfr.Experimental;
 
@@ -45,6 +46,8 @@ import jdk.jfr.Experimental;
  */
 @Experimental
 public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
+
+    private static final String TYPE_MISMATCH = "Fact must match type of the rule's range";
 
     private final List<Operator> SUPPORTED_OPERATORS = List.of(Operator.BETWEEN, Operator.IS_BEFORE, Operator.IS_AFTER);
 
@@ -141,8 +144,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
                             () -> LeafOutcome.of(Result.OPERATION_NOT_SUPPORTED), executor);
                 }
 
-                return castFact(resolveFact())
-                        .thenCompose(fact -> runCheckAsync(() -> handleSuccess(fact), executor));
+                return exposeTypeMismatch(castFact(resolveFact())
+                        .thenCompose(fact -> runCheckAsync(() -> handleSuccess(fact), executor)));
             }
 
             @Override
@@ -216,18 +219,52 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
     @SuppressWarnings("unchecked")
     private CompletableFuture<T> castFact(CompletableFuture<Object> resolved) {
-        return resolved
-                .thenApply(f -> {
-                    if (f == null) {
-                        return null;
-                    }
+        return resolved.thenApply(fact -> {
+            if (fact == null) {
+                return null;
+            }
+            requireMatchingFact(fact);
+            return (T) fact;
+        });
+    }
 
-                    try {
-                        return (T) f;
-                    } catch (ClassCastException e) {
-                        throw new IllegalArgumentException("Fact must match type of the rule's range", e);
-                    }
-                });
+    private void requireMatchingFact(Object fact) {
+        Class<?> witness = rangeWitness();
+        if (witness != null && !witness.isInstance(fact)) {
+            throw new IllegalArgumentException(TYPE_MISMATCH);
+        }
+    }
+
+    private Class<?> rangeWitness() {
+        if (min != null) {
+            return min.getClass();
+        }
+        if (max != null) {
+            return max.getClass();
+        }
+        return null;
+    }
+
+    private CompletableFuture<LeafOutcome<T>> exposeTypeMismatch(
+            CompletableFuture<LeafOutcome<T>> checked) {
+        var exposed = new CompletableFuture<LeafOutcome<T>>();
+        checked.whenComplete((outcome, failure) -> {
+            if (failure == null) {
+                exposed.complete(outcome);
+                return;
+            }
+            exposed.completeExceptionally(typeMismatchOrSame(failure));
+        });
+        return exposed;
+    }
+
+    private Throwable typeMismatchOrSame(Throwable failure) {
+        Throwable cause = failure instanceof CompletionException ? failure.getCause() : failure;
+        if (cause instanceof IllegalArgumentException
+                && TYPE_MISMATCH.equals(cause.getMessage())) {
+            return cause;
+        }
+        return failure;
     }
 
     @Override
