@@ -22,6 +22,7 @@ import com.adobe.abp.regola.mockdatafetchers.BlockingBeforeFutureDataFetcher;
 import com.adobe.abp.regola.mockdatafetchers.SynchronouslyFailingDataFetcher;
 import com.adobe.abp.regola.mockrules.BlockingStartRule;
 import com.adobe.abp.regola.mockrules.DelayedRule;
+import com.adobe.abp.regola.mockrules.ErrorRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
 import com.adobe.abp.regola.mockrules.ImmediateRule;
 import com.adobe.abp.regola.mockrules.MockRule;
@@ -207,6 +208,17 @@ class AndRuleTest {
         }
 
         @Test
+        @DisplayName("ignore an ignored subrule that throws an error synchronously when started")
+        void ignoredSubruleThrowingErrorSynchronouslyIsIgnored() {
+            final var ruleOne = new ErrorRule("rule-1");
+            ruleOne.setIgnore(true);
+            rule.setRules(List.of(ruleOne, new ImmediateRule("rule-2", Result.VALID)));
+
+            assertThat(rule.evaluate(resolver).status())
+                    .isCompletedWithValue(Result.VALID);
+        }
+
+        @Test
         @DisplayName("fail through its status when a subrule cannot be evaluated")
         void unevaluableSubruleFailsStatus() {
             rule.setRules(Arrays.asList(new ImmediateRule("rule-1", Result.VALID), null));
@@ -387,6 +399,43 @@ class AndRuleTest {
         }
 
         @Test
+        @DisplayName("complete with the decided result when a cancellation callback throws")
+        void cancellationCallbackErrorDoesNotStopCompletion() {
+            rule.setRules(List.of(new ConstantRule(Result.INVALID), ruleFailingOnCancellation()));
+
+            assertThat(rule.evaluate(resolver).status())
+                    .isCompletedWithValue(Result.INVALID);
+        }
+
+        @Test
+        @DisplayName("run its completion action when a cancellation callback throws an error")
+        void cancellationCallbackErrorDoesNotStopCompletionAction() {
+            final var completed = new AtomicReference<Result>();
+            rule.setRules(List.of(new ConstantRule(Result.INVALID), ruleFailingOnCancellation()));
+            rule.setAction(new Action()
+                    .setOnCompletion((result, throwable, ruleResult) -> completed.set(result)));
+
+            rule.evaluate(resolver).status();
+
+            assertThat(completed)
+                    .hasValue(Result.INVALID);
+        }
+
+        @Test
+        @DisplayName("cancel its status when cancelled while a cancellation callback throws")
+        void cancelWithCancellationCallbackError() {
+            when(resolver.resolveFact("running")).thenReturn(new CompletableFuture<>());
+            rule.setRules(List.of(ruleFailingOnCancellation()));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            final var status = evaluationResult.status();
+            evaluationResult.cancel();
+
+            assertThat(status)
+                    .isCancelled();
+        }
+
+        @Test
         @DisplayName("skip subrules not yet started when cancelled while starting its subrules")
         void cancelWhileStartingSkipsRemainingSubrules() throws Exception {
             final var cancelledSnapshot = new AtomicReference<RuleResult>();
@@ -435,6 +484,13 @@ class AndRuleTest {
 
             assertThat(evaluationResult.status()).isCompletedWithValue(Result.VALID);
             assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.VALID);
+        }
+
+        private Rule ruleFailingOnCancellation() {
+            return new ExistsRule("running").setAction(new Action()
+                    .setOnCancellation(ruleResult -> {
+                        throw new AssertionError("boom");
+                    }));
         }
 
         private Collection<RuleResult> nestedRuleResults(RuleResult ruleResult) {
