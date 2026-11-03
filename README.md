@@ -925,6 +925,14 @@ rule.setAction(action);
 
 In this particular example, this action will be executed when the rule is evaluated and the result is `VALID`.
 
+`onCompletion` runs after the rule's result is published, so `ruleResult` always matches `result`.
+If the evaluation fails, for example because a fact cannot be fetched, `result` is `FAILED`,
+`throwable` is the failure and `ruleResult` carries its message and cause.
+
+If `onCompletion` throws an exception, the rule keeps its result. If the rule had not failed, its
+`status` future completes exceptionally with the exception. Otherwise the exception is added as
+suppressed to the cause of the failure.
+
 ### Cancellation
 
 An action can also run when its rule is skipped or cancelled, for example because of

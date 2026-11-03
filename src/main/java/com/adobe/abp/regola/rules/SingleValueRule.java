@@ -13,9 +13,7 @@ package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
-import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -60,88 +58,27 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
 
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
-        return new EvaluationResult() {
-            private final LeafCancellation cancellation = new LeafCancellation();
-            private volatile Result result = Result.MAYBE;
-            private volatile T evaluatedFact;
-            private volatile Collection<T> evaluatedFacts;
-            private volatile String message;
-            private volatile Throwable cause;
-
+        return new LeafEvaluationResult<T>(this, factsResolver) {
             @Override
-            public RuleResult snapshot() {
-                return ValuesRuleResult.<T>builder().with(r -> {
-                    r.type = getType();
-                    r.key = getKey();
-                    r.operator = getOperator();
-                    r.description = getDescription();
-                    r.result = result;
-                    r.expectedValue = getValue();
-                    r.actualValue = evaluatedFact;
-                    r.actualValues = evaluatedFacts;
-                    r.message = message;
-                    r.cause = cause;
-                    r.ignored = isIgnore();
-                    r.skipped = cancellation.isSkipped();
-                    r.cancelled = cancellation.isCancelled();
-                }).build();
-            }
-
-            @Override
-            public CompletableFuture<Result> status() {
-                return cancellation.start(this::evaluateFact);
-            }
-
-            @Override
-            public void cancel() {
-                cancellation.cancel(() -> Optional.ofNullable(getAction())
-                        .ifPresent(action -> action.onCancellation(snapshot())));
-            }
-
-            private CompletableFuture<Result> evaluateFact() {
+            CompletableFuture<LeafOutcome<T>> evaluateRule() {
                 if (getSingleFactOperators().contains(getOperator())) {
-                    return resolveFact(cancellation, factsResolver, getKey())
-                            .thenApply(fact -> cancellation.evaluate(() -> {
-                                final Result checkedResult = check(fact);
-                                evaluatedFact = fact;
-                                result = checkedResult;
-                                return result;
-                            }))
-                            .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> cancellation.commit())
-                                    .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
-                            .exceptionally(this::handleFailure);
+                    return castFact(resolveFact())
+                            .thenApply(fact -> runCheck(
+                                    () -> LeafOutcome.ofValue(check(fact), fact)));
                 } else if (getSetFactOperators().contains(getOperator())) {
-                    return resolveSetFact(cancellation, factsResolver, getKey())
-                            .thenApply(factsSet -> cancellation.evaluate(() -> {
-                                final Result checkedResult = check(factsSet);
-                                evaluatedFacts = factsSet;
-                                result = checkedResult;
-                                return result;
-                            }))
-                            .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> cancellation.commit())
-                                    .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
-                            .exceptionally(this::handleFailure);
+                    return castSetFact(resolveFact())
+                            .thenApply(factsSet -> runCheck(
+                                    () -> LeafOutcome.ofValues(check(factsSet), factsSet)));
                 } else {
-                    return cancellation.evaluateAsync(() -> {
-                                result = Result.OPERATION_NOT_SUPPORTED;
-                                return result;
-                            }, executor)
-                            .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> cancellation.commit())
-                                    .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
+                    return runCheckAsync(
+                            () -> LeafOutcome.of(Result.OPERATION_NOT_SUPPORTED), executor);
                 }
             }
 
-            private Result handleFailure(Throwable throwable) {
-                if (!cancellation.commit()) {
-                    return result;
-                }
-                message = throwable.getMessage();
-                cause = throwable;
-                result = Result.FAILED;
-                return result;
+            @Override
+            void describeExpectation(ValuesRuleResult.RuleResultBuilder<T> ruleResult) {
+                ruleResult.operator = getOperator();
+                ruleResult.expectedValue = getValue();
             }
         };
     }
@@ -208,8 +145,8 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
     }
 
     @SuppressWarnings("unchecked")
-    private CompletableFuture<T> resolveFact(LeafCancellation cancellation, FactsResolver factsResolver, String key) {
-        return cancellation.resolveFact(factsResolver, key)
+    private CompletableFuture<T> castFact(CompletableFuture<Object> resolved) {
+        return resolved
                 .thenApply(f -> {
                             if (f == null) {
                                 return null;
@@ -227,8 +164,8 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
     }
 
     @SuppressWarnings("unchecked")
-    private CompletableFuture<Set<T>> resolveSetFact(LeafCancellation cancellation, FactsResolver factsResolver, String key) {
-        return cancellation.resolveFact(factsResolver, key)
+    private CompletableFuture<Set<T>> castSetFact(CompletableFuture<Object> resolved) {
+        return resolved
                 .thenApply(f -> {
                             if (f == null) {
                                 return null;

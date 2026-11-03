@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.rules;
 
+import com.adobe.abp.regola.actions.Action;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
@@ -19,11 +20,14 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -174,6 +178,129 @@ class LeafRuleSnapshotTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should pass FAILED and the published failure to onCompletion when the fact fails")
+    void completionCallbackSeesFailure(
+            String name, Rule rule, Object value, Result expectedResult, boolean collection) {
+        when(resolver.resolveFact(KEY))
+                .thenReturn(failedFact());
+        final var completedResult = new AtomicReference<Result>();
+        final var completedThrowable = new AtomicReference<Throwable>();
+        final var completedSnapshot = new AtomicReference<RuleResult>();
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> {
+                    completedResult.set(result);
+                    completedThrowable.set(throwable);
+                    completedSnapshot.set(ruleResult);
+                }));
+
+        rule.evaluate(resolver)
+                .status()
+                .join();
+
+        assertThat(completedResult)
+                .hasValue(Result.FAILED);
+        assertThat(completedThrowable.get())
+                .hasMessageContaining("fetch failed");
+        assertThat(completedSnapshot.get())
+                .extracting(RuleResult::getResult, RuleResult::getMessage, RuleResult::getCause)
+                .containsExactly(
+                        Result.FAILED,
+                        completedThrowable.get().getMessage(),
+                        completedThrowable.get());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should keep the evaluated result and fail the status when onCompletion throws")
+    void throwingCompletionCallbackKeepsResult(
+            String name, Rule rule, Object value, Result expectedResult, boolean collection) {
+        final var callbackFailure = new IllegalStateException("callback failed");
+        when(resolver.resolveFact(KEY))
+                .thenReturn(CompletableFuture.completedFuture(value));
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> {
+                    throw callbackFailure;
+                }));
+
+        final var evaluation = rule.evaluate(resolver);
+        final var status = evaluation.status();
+
+        assertThat(status)
+                .failsWithin(3, TimeUnit.SECONDS)
+                .withThrowableOfType(ExecutionException.class)
+                .withCause(callbackFailure);
+        assertThat(evaluation.snapshot())
+                .extracting(RuleResult::getResult, RuleResult::getMessage, RuleResult::getCause)
+                .containsExactly(expectedResult, null, null);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should keep FAILED and the original cause when onCompletion throws on failure")
+    void throwingCompletionCallbackKeepsFailure(
+            String name, Rule rule, Object value, Result expectedResult, boolean collection) {
+        final var callbackFailure = new IllegalStateException("callback failed");
+        when(resolver.resolveFact(KEY))
+                .thenReturn(failedFact());
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> {
+                    throw callbackFailure;
+                }));
+
+        final var evaluation = rule.evaluate(resolver);
+        final var status = evaluation.status();
+
+        assertThat(status)
+                .isCompletedWithValue(Result.FAILED);
+        assertThat(evaluation.snapshot().getCause())
+                .hasMessageContaining("fetch failed")
+                .hasSuppressedException(callbackFailure);
+    }
+
+    @Test
+    @DisplayName("should not publish the range fact before its result is decided")
+    void publishesRangeFactWithResult() throws Exception {
+        final var comparing = new CountDownLatch(1);
+        final var releaseComparison = new CountDownLatch(1);
+        final var fact = new BlockingComparable(comparing, releaseComparison);
+        final var rule = new RangeRule<BlockingComparable>(DIRECT_EXECUTOR)
+                .setMin(fact)
+                .setMax(fact)
+                .setOperator(Operator.BETWEEN)
+                .setKey(KEY);
+        final var pendingFact = new CompletableFuture<Object>();
+        when(resolver.resolveFact(KEY))
+                .thenReturn(pendingFact);
+        final var evaluation = rule.evaluate(resolver);
+        final var status = evaluation.status();
+        final var writerExecutor = Executors.newSingleThreadExecutor();
+        try {
+            final var writer = CompletableFuture.runAsync(
+                    () -> pendingFact.complete(fact), writerExecutor);
+            assertThat(comparing.await(3, TimeUnit.SECONDS))
+                    .isTrue();
+
+            final var snapshot = (ValuesRuleResult<?>) evaluation.snapshot();
+            releaseComparison.countDown();
+
+            assertThat(snapshot)
+                    .extracting(RuleResult::getResult, ValuesRuleResult::getActualValue)
+                    .containsExactly(Result.MAYBE, null);
+            assertThat(status.get(3, TimeUnit.SECONDS))
+                    .isEqualTo(Result.VALID);
+            writer.get(3, TimeUnit.SECONDS);
+        } finally {
+            releaseComparison.countDown();
+            writerExecutor.shutdownNow();
+        }
+    }
+
+    private static CompletableFuture<Object> failedFact() {
+        return CompletableFuture.failedFuture(new IllegalStateException("fetch failed"));
+    }
+
     private static ValuesRuleResult<?> awaitTerminalSnapshot(EvaluationResult evaluation) {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
@@ -209,6 +336,30 @@ class LeafRuleSnapshotTest {
                 throw new IllegalStateException("Interrupted while reading failure message", e);
             }
             return super.getMessage();
+        }
+    }
+
+    private static final class BlockingComparable implements Comparable<BlockingComparable> {
+        private final CountDownLatch comparing;
+        private final CountDownLatch releaseComparison;
+
+        private BlockingComparable(CountDownLatch comparing, CountDownLatch releaseComparison) {
+            this.comparing = comparing;
+            this.releaseComparison = releaseComparison;
+        }
+
+        @Override
+        public int compareTo(BlockingComparable other) {
+            comparing.countDown();
+            try {
+                if (!releaseComparison.await(3, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Comparison was not released");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while comparing", e);
+            }
+            return 0;
         }
     }
 }
