@@ -293,24 +293,22 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
      *
      * <p>If the evaluation is still pending, it stops without a result: the status future completes
      * exceptionally with a {@link java.util.concurrent.CancellationException}, {@link #getResult()}
-     * stays {@link Result#MAYBE} and {@link #afterCompletion(Result, Throwable)} is not called. In
-     * every case, subrules are cancelled through {@link #cancelSubrules()}.</p>
+     * stays {@link Result#MAYBE}, {@link #afterCompletion(Result, Throwable)} is not called and
+     * subrules are cancelled through {@link #cancelSubrules()}. If a result has already been decided,
+     * this method has no effect.</p>
      */
     @Override
     public final void cancel() {
-        boolean cancelStatus = false;
         lock.lock();
         try {
-            if (!terminated) {
-                terminated = true; // no callback can decide a result from now on
-                cancelStatus = true;
+            if (terminated) {
+                return; // already decided; publishCompletion cancels the subrules
             }
+            terminated = true; // no callback can decide a result from now on
         } finally {
             lock.unlock();
         }
         cancelSubrulesQuietly();
-        if (cancelStatus) {
-            status.cancel(false);
-        }
+        status.cancel(false);
     }
 }

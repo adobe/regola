@@ -98,26 +98,26 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
             private CompletableFuture<Result> evaluateFact() {
                 if (getSingleFactOperators().contains(getOperator())) {
                     return resolveFact(cancellation, factsResolver, getKey())
-                            .thenApply(fact -> {
+                            .thenApply(fact -> cancellation.evaluate(() -> {
                                 final Result checkedResult = check(fact);
                                 evaluatedFact = fact;
                                 result = checkedResult;
                                 return result;
-                            })
+                            }))
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> !cancellation.isCancelled())
+                                    .filter(action -> cancellation.commit())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
                 } else if (getSetFactOperators().contains(getOperator())) {
                     return resolveSetFact(cancellation, factsResolver, getKey())
-                            .thenApply(factsSet -> {
+                            .thenApply(factsSet -> cancellation.evaluate(() -> {
                                 final Result checkedResult = check(factsSet);
                                 evaluatedFacts = factsSet;
                                 result = checkedResult;
                                 return result;
-                            })
+                            }))
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> !cancellation.isCancelled())
+                                    .filter(action -> cancellation.commit())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
                 } else {
@@ -126,13 +126,13 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                                 return result;
                             }, executor)
                             .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> !cancellation.isCancelled())
+                                    .filter(action -> cancellation.commit())
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
                 }
             }
 
             private Result handleFailure(Throwable throwable) {
-                if (cancellation.isCancelled()) {
+                if (!cancellation.commit()) {
                     return result;
                 }
                 message = throwable.getMessage();

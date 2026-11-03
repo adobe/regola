@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -158,5 +159,39 @@ class LeafRuleCancellationTest {
         assertThat(evaluationResult.status()).isCancelled();
         assertThat(evaluationResult.snapshot().getResult()).isEqualTo(Result.MAYBE);
         verifyNoInteractions(resolver);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should keep the result when cancelled after completion")
+    void cancelAfterCompletion(String name, Supplier<Rule> ruleSupplier) {
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY)).thenReturn(CompletableFuture.completedFuture("value"));
+        final var rule = ruleSupplier.get();
+
+        final var evaluationResult = rule.evaluate(resolver);
+        final var result = evaluationResult.status().join();
+        evaluationResult.cancel();
+
+        assertThat(evaluationResult.snapshot().getResult()).isEqualTo(result);
+        assertThat(evaluationResult.status().join()).isEqualTo(result);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should keep the result when cancelled after the result is decided but before the status completes")
+    void cancelAfterDecision(String name, Supplier<Rule> ruleSupplier) {
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY)).thenReturn(CompletableFuture.completedFuture("value"));
+        final var rule = ruleSupplier.get();
+        final var evaluationResult = new AtomicReference<EvaluationResult>();
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> evaluationResult.get().cancel()));
+
+        evaluationResult.set(rule.evaluate(resolver));
+        final var result = evaluationResult.get().status().join();
+
+        assertThat(result).isNotEqualTo(Result.MAYBE);
+        assertThat(evaluationResult.get().snapshot().getResult()).isEqualTo(result);
     }
 }
