@@ -57,6 +57,8 @@ public class UnaryBooleanRuleResult extends RuleResult {
                 ", description='" + getDescription() + '\'' +
                 ", message='" + getMessage() + '\'' +
                 ", ignored=" + isIgnored() +
+                ", skipped=" + isSkipped() +
+                ", cancelled=" + isCancelled() +
                 ", rule=" + rule +
                 "}";
     }
@@ -73,6 +75,8 @@ public class UnaryBooleanRuleResult extends RuleResult {
         public String description;
         public String message;
         public boolean ignored;
+        public boolean skipped;
+        public boolean cancelled;
         public RuleResult rule;
 
         private RuleResultBuilder() {
@@ -87,6 +91,8 @@ public class UnaryBooleanRuleResult extends RuleResult {
             ruleResult.setDescription(description);
             ruleResult.setMessage(message);
             ruleResult.setIgnored(ignored);
+            ruleResult.setSkipped(skipped);
+            ruleResult.setCancelled(cancelled);
             ruleResult.setRule(rule);
             return ruleResult;
         }

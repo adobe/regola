@@ -82,6 +82,8 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                     r.message = message;
                     r.cause = cause;
                     r.ignored = isIgnore();
+                    r.skipped = cancellation.isSkipped();
+                    r.cancelled = cancellation.isCancelled();
                 }).build();
             }
 

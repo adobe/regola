@@ -160,7 +160,10 @@ is decided:
 - subrules that have not been started yet are skipped.
 - subrules that are still running are cancelled.
 
-Skipped and cancelled subrules report `MAYBE` and their actions do not run. With asynchronous data
+Skipped and cancelled subrules report `MAYBE` and their actions do not run. Their `RuleResult` tells
+them apart from a rule that genuinely evaluated to `MAYBE`: `isSkipped()` is `true` for a subrule
+that was never started, `isCancelled()` for one that was started but not decided. In JSON, `skipped`
+and `cancelled` only appear when `true`. With asynchronous data
 fetchers, all subrules are usually started before any of them completes, so most of the saving comes
 from cancellation.
 
@@ -174,8 +177,8 @@ evaluationResult.cancel();
 ```
 
 `status` then completes with a `CancellationException`, the rules that had not completed report
-`MAYBE`, and their actions do not run. Cancelling an evaluation that has already completed has no
-effect.
+`MAYBE` and are marked as skipped or cancelled, and their actions do not run. Cancelling an
+evaluation that has already completed has no effect.
 
 ##### What cancellation stops, and what it does not
 

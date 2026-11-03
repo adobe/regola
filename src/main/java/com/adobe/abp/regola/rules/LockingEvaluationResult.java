@@ -54,6 +54,10 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     // callback sees terminated==true and backs off before it can decide a different result.
     private volatile boolean terminated;
 
+    // Set at most once, by cancel(), when it stops a pending evaluation. Written under the lock.
+    private volatile boolean skipped;
+    private volatile boolean cancelled;
+
     // ── Protected accessors for subclass decision logic ──────────────────────────────────────────
 
     /**
@@ -74,6 +78,24 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
      */
     protected final boolean isDone() {
         return terminated;
+    }
+
+    /**
+     * Return whether this evaluation was cancelled before it was started.
+     *
+     * @return {@code true} if the evaluation was skipped
+     */
+    protected final boolean isSkipped() {
+        return skipped;
+    }
+
+    /**
+     * Return whether this evaluation was cancelled after it was started but before it was decided.
+     *
+     * @return {@code true} if the evaluation was cancelled
+     */
+    protected final boolean isCancelled() {
+        return cancelled;
     }
 
     // ── Lock operations ───────────────────────────────────────────────────────────────────────────
@@ -305,6 +327,11 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
                 return; // already decided; publishCompletion cancels the subrules
             }
             terminated = true; // no callback can decide a result from now on
+            if (started) {
+                cancelled = true;
+            } else {
+                skipped = true;
+            }
         } finally {
             lock.unlock();
         }

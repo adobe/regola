@@ -58,6 +58,8 @@ public class MultiaryBooleanRuleResult extends RuleResult {
                 ", description='" + getDescription() + '\'' +
                 ", message='" + getMessage() + '\'' +
                 ", ignored=" + isIgnored() +
+                ", skipped=" + isSkipped() +
+                ", cancelled=" + isCancelled() +
                 ", rules=" + rules +
                 "}";
     }
@@ -74,6 +76,8 @@ public class MultiaryBooleanRuleResult extends RuleResult {
         public String description;
         public String message;
         public boolean ignored;
+        public boolean skipped;
+        public boolean cancelled;
         public Collection<RuleResult> rules;
 
         private RuleResultBuilder() {
@@ -88,6 +92,8 @@ public class MultiaryBooleanRuleResult extends RuleResult {
             ruleResult.setDescription(description);
             ruleResult.setMessage(message);
             ruleResult.setIgnored(ignored);
+            ruleResult.setSkipped(skipped);
+            ruleResult.setCancelled(cancelled);
             ruleResult.setRules(rules);
             return ruleResult;
         }
