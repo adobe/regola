@@ -291,12 +291,15 @@ class LeafRuleCancellationTest {
                 .setOnCompletion((result, throwable, ruleResult) -> completions.incrementAndGet()));
         final var evaluationResult = rule.evaluate(resolver);
         final var starter = Executors.newSingleThreadExecutor();
+        final var canceller = Executors.newSingleThreadExecutor();
         try {
             final var starting = CompletableFuture.supplyAsync(evaluationResult::status, starter);
             await(requesting);
 
-            evaluationResult.cancel();
+            // cancel() shares the start lock with the blocked request, so it has to run elsewhere.
+            final var cancelled = CompletableFuture.runAsync(evaluationResult::cancel, canceller);
             releaseRequest.countDown();
+            cancelled.get(3, TimeUnit.SECONDS);
             final var status = starting.get(3, TimeUnit.SECONDS);
 
             assertThat(status)
@@ -311,6 +314,7 @@ class LeafRuleCancellationTest {
         } finally {
             releaseRequest.countDown();
             starter.shutdownNow();
+            canceller.shutdownNow();
         }
     }
 
