@@ -110,8 +110,8 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
         if (executor == null) {
             try {
                 return dataFetcher.fetch(context);
-            } catch (RuntimeException e) {
-                return CompletableFuture.failedFuture(e);
+            } catch (Throwable t) {
+                return CompletableFuture.failedFuture(t);
             }
         }
 

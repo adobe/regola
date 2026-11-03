@@ -330,6 +330,28 @@ class SimpleFactsResolverTest {
         }
 
         @Test
+        @DisplayName("should complete exceptionally without an executor when a fetch throws an error")
+        void synchronousFetchErrorBecomesFailedFutureWithoutExecutor() {
+            final var error = new Error("Synchronous error");
+            DataFetcher<MockData, Context> dataFetcher = new MockDataFetcher(new MockData("ETLA")) {
+                @Override
+                public String calculateRequestKey(Context context) {
+                    throw error;
+                }
+            };
+            SimpleFactsResolver<Context> factsResolver = new SimpleFactsResolver<>(
+                    context, Map.of(TestDataSources.MOCK, dataFetcher));
+            factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
+
+            CompletableFuture<Object> resolvedFact = factsResolver.resolveFact(TEST_KEY);
+
+            assertThat(resolvedFact)
+                    .failsWithin(Duration.ofMillis(200))
+                    .withThrowableOfType(ExecutionException.class)
+                    .withCause(error);
+        }
+
+        @Test
         @DisplayName("should invoke the complete data fetch directly without an executor")
         void noExecutorRunsCompleteDataFetchOnCallingThread() {
             Thread callerThread = Thread.currentThread();
