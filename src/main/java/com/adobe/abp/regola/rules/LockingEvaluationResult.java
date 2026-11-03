@@ -33,7 +33,9 @@ import java.util.function.Supplier;
  *
  * <p>If {@code afterCompletion} throws, the future still transitions. A callback failure replaces a
  * normal completion, while an already-failed evaluation keeps its original cause and may record the
- * callback failure as suppressed.
+ * callback failure as suppressed. Failures while cancelling subrules, including {@link Error}s, are
+ * ignored so that they can neither stop the remaining subrules from being cancelled nor leave the
+ * future pending.
  */
 public abstract class LockingEvaluationResult implements EvaluationResult {
 
@@ -263,7 +265,7 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     static void cancelQuietly(EvaluationResult child) {
         try {
             child.cancel();
-        } catch (RuntimeException ignored) {
+        } catch (Throwable ignored) {
             // Cancellation is best effort.
         }
     }
@@ -275,8 +277,8 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     static CompletableFuture<Result> startChild(EvaluationResult child) {
         try {
             return child.status();
-        } catch (RuntimeException e) {
-            return CompletableFuture.failedFuture(e);
+        } catch (Throwable t) {
+            return CompletableFuture.failedFuture(t);
         }
     }
 
@@ -328,7 +330,7 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     private void cancelSubrulesQuietly() {
         try {
             cancelSubrules();
-        } catch (RuntimeException ignored) {
+        } catch (Throwable ignored) {
             // Cancellation is best effort and must not prevent this evaluation from completing.
         }
     }
@@ -387,8 +389,8 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
         } finally {
             lock.unlock();
         }
-        cancelSubrulesQuietly();
         try {
+            cancelSubrulesQuietly();
             afterCancellation();
         } finally {
             status.cancel(false);
