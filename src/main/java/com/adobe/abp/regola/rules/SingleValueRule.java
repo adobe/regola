@@ -15,7 +15,6 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
-import com.adobe.abp.regola.utils.futures.FutureUtils;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -120,7 +119,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
                                     .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
                             .exceptionally(this::handleFailure);
                 } else {
-                    return FutureUtils.supplyAsync(() -> {
+                    return cancellation.evaluateAsync(() -> {
                                 result = Result.OPERATION_NOT_SUPPORTED;
                                 return result;
                             }, executor)

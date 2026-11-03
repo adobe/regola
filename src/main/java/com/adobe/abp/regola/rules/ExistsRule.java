@@ -15,7 +15,6 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
-import com.adobe.abp.regola.utils.futures.FutureUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -100,7 +99,7 @@ public class ExistsRule extends KeyBasedRule {
 
             private CompletableFuture<Result> evaluateFact() {
                 return cancellation.resolveFact(factsResolver, getKey())
-                        .thenCompose(fact -> FutureUtils.supplyAsync(() -> {
+                        .thenCompose(fact -> cancellation.evaluateAsync(() -> {
                             result = Optional.ofNullable(fact)
                                     .map(f -> Result.VALID)
                                     .orElse(Result.INVALID);

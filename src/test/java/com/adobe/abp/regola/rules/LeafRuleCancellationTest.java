@@ -14,9 +14,13 @@ package com.adobe.abp.regola.rules;
 import com.adobe.abp.regola.actions.Action;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
+import com.adobe.abp.regola.results.ValuesRuleResult;
+import java.util.ArrayDeque;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +52,76 @@ class LeafRuleCancellationTest {
                         .setKey(KEY)),
                 Arguments.of("ExistsRule", (Supplier<Rule>) () -> new ExistsRule(KEY)),
                 Arguments.of("NullRule", (Supplier<Rule>) () -> new NullRule(KEY)));
+    }
+
+    static Stream<Arguments> queuedLeafRules() {
+        return Stream.of(
+                Arguments.of("SetRule IN", (Function<Executor, Rule>) executor ->
+                        new SetRule<Integer>(executor)
+                                .setValues(Set.of(1))
+                                .setOperator(Operator.IN)
+                                .setKey(KEY)),
+                Arguments.of("SetRule INTERSECTS", (Function<Executor, Rule>) executor ->
+                        new SetRule<Integer>(executor)
+                                .setValues(Set.of(1))
+                                .setOperator(Operator.INTERSECTS)
+                                .setKey(KEY)),
+                Arguments.of("RangeRule BETWEEN", (Function<Executor, Rule>) executor ->
+                        new RangeRule<Integer>(executor)
+                                .setMin(1)
+                                .setMax(10)
+                                .setOperator(Operator.BETWEEN)
+                                .setKey(KEY)),
+                Arguments.of("ExistsRule", (Function<Executor, Rule>) executor ->
+                        new ExistsRule(executor, KEY)),
+                Arguments.of("NullRule", (Function<Executor, Rule>) executor ->
+                        new NullRule(executor, KEY)),
+                Arguments.of("StringRule unsupported", (Function<Executor, Rule>) executor ->
+                        new StringRule(executor, KEY, Operator.IN, "value")),
+                Arguments.of("SetRule unsupported", (Function<Executor, Rule>) executor ->
+                        new SetRule<Integer>(executor)
+                                .setOperator(Operator.EQUALS)
+                                .setKey(KEY)),
+                Arguments.of("RangeRule unsupported", (Function<Executor, Rule>) executor ->
+                        new RangeRule<Integer>(executor)
+                                .setOperator(Operator.EQUALS)
+                                .setKey(KEY)));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("queuedLeafRules")
+    @DisplayName("should skip checks still queued on the rule executor when cancelled")
+    void cancelQueuedCheck(String name, Function<Executor, Rule> ruleFactory) {
+        final var tasks = new ArrayDeque<Runnable>();
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY))
+                .thenReturn(CompletableFuture.completedFuture(1));
+        final var actionCalls = new AtomicInteger();
+        final var rule = ruleFactory.apply(tasks::add);
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> actionCalls.incrementAndGet()));
+        final var evaluationResult = rule.evaluate(resolver);
+        final var status = evaluationResult.status();
+
+        assertThat(tasks)
+                .hasSize(1);
+        assertThat(status)
+                .isNotDone();
+
+        evaluationResult.cancel();
+        tasks.remove().run();
+
+        final var snapshot = (ValuesRuleResult<?>) evaluationResult.snapshot();
+        assertThat(status)
+                .isCancelled();
+        assertThat(snapshot.getResult())
+                .isEqualTo(Result.MAYBE);
+        assertThat(snapshot.getActualValue())
+                .isNull();
+        assertThat(snapshot.getActualValues())
+                .isNull();
+        assertThat(actionCalls)
+                .hasValue(0);
     }
 
     @ParameterizedTest(name = "{0}")

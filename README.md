@@ -186,6 +186,7 @@ Stopped:
 - subrules that have not been started yet.
 - fact fetches still waiting for a thread on the `SimpleFactsResolver` executor: the data fetcher is
   not called.
+- rule checks still waiting for a thread on a leaf rule's executor.
 - actions of cancelled rules.
 
 Not stopped:
