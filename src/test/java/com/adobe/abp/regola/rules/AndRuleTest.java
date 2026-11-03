@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -100,7 +99,7 @@ class AndRuleTest {
     private MultiaryBooleanRuleResult buildRuleResult(MultiaryBooleanRuleResult.RuleResultBuilder ruleResultBuilder, Result result) {
         return ruleResultBuilder.with(r -> {
             r.result = result;
-            r.rules = Set.of();
+            r.rules = List.of();
         }).build();
     }
 
@@ -109,7 +108,7 @@ class AndRuleTest {
             KeyBasedRule ruleTwo) {
         return ruleResultBuilder.with(r -> {
             r.result = Result.MAYBE;
-            r.rules = Set.of(
+            r.rules = List.of(
                     buildRuleResult(ruleOne, Result.MAYBE, ruleOne.isIgnore()),
                     buildRuleResult(ruleTwo, Result.MAYBE, ruleTwo.isIgnore()));
         }).build();
@@ -266,6 +265,40 @@ class AndRuleTest {
 
             assertThat(rule.evaluate(resolver).status()).isCompletedWithValue(Result.VALID);
             assertThat(ruleTwo.getStarts()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("snapshot both identical skipped siblings in listed order")
+        void snapshotsIdenticalSkippedSiblingsInListedOrder() {
+            rule.setRules(List.of(
+                    new ConstantRule(Result.INVALID),
+                    new StringRule("same", Operator.EQUALS, "value"),
+                    new StringRule("same", Operator.EQUALS, "value")));
+            final var skipped = ValuesRuleResult.builder().with(r -> {
+                r.type = RuleType.STRING.getName();
+                r.key = "same";
+                r.operator = Operator.EQUALS;
+                r.expectedValue = "value";
+                r.result = Result.MAYBE;
+                r.skipped = true;
+            }).build();
+            final var expected = ruleResultBuilder.with(r -> {
+                r.result = Result.INVALID;
+                r.rules = List.of(
+                        RuleResult.baseBuilder().with(constant -> {
+                            constant.type = RuleType.CONSTANT.getName();
+                            constant.result = Result.INVALID;
+                        }).build(),
+                        skipped,
+                        skipped);
+            }).build();
+
+            final var evaluationResult = rule.evaluate(resolver);
+
+            assertThat(evaluationResult.status())
+                    .isCompletedWithValue(Result.INVALID);
+            assertThat(evaluationResult.snapshot())
+                    .isEqualTo(expected);
         }
     }
 
@@ -524,7 +557,7 @@ class AndRuleTest {
             assertThat(result).isEqualTo(Result.VALID);
             final var finalResult = ruleResultBuilder.with(r -> {
                 r.result = Result.VALID;
-                r.rules = Set.of(
+                r.rules = List.of(
                         buildRuleResult(ruleOne, Result.VALID),
                         buildRuleResult(ruleTwo, Result.VALID)
                 );
@@ -581,7 +614,7 @@ class AndRuleTest {
             assertThat(result).isEqualTo(Result.VALID);
             final var finalResult = ruleResultBuilder.with(r -> {
                 r.result = Result.VALID;
-                r.rules = Set.of(
+                r.rules = List.of(
                         buildRuleResult(ruleOne, Result.VALID),
                         buildRuleResult(ruleTwo, controlResult, true)
                 );
@@ -638,7 +671,7 @@ class AndRuleTest {
             assertThat(result).isEqualTo(Result.VALID);
             final var finalResult = ruleResultBuilder.with(r -> {
                 r.result = Result.VALID;
-                r.rules = Set.of(
+                r.rules = List.of(
                         buildRuleResult(ruleOne, controlResult, true),
                         buildRuleResult(ruleTwo, Result.VALID)
                 );
@@ -689,7 +722,7 @@ class AndRuleTest {
             assertThat(result).isEqualTo(Result.VALID);
             final var finalResult = ruleResultBuilder.with(r -> {
                 r.result = Result.VALID;
-                r.rules = Set.of(
+                r.rules = List.of(
                         buildRuleResult(ruleOne, Result.INVALID, true),
                         buildRuleResult(ruleTwo, Result.INVALID, true)
                 );
@@ -717,7 +750,7 @@ class AndRuleTest {
             assertThat(result).isEqualTo(Result.VALID);
             final var finalResult = ruleResultBuilder.with(r -> {
                 r.result = Result.VALID;
-                r.rules = Set.of(
+                r.rules = List.of(
                         buildRuleResult(ruleOne, Result.VALID),
                         buildRuleResult(ruleTwo, Result.VALID)
                 );
@@ -900,7 +933,7 @@ class AndRuleTest {
             assertThat(result).isEqualTo(Result.VALID);
             final var finalResult = ruleResultBuilder.with(r -> {
                 r.result = Result.VALID;
-                r.rules = Set.of(
+                r.rules = List.of(
                         buildRuleResult(ruleOne, Result.VALID),
                         buildRuleResult(ruleTwo, Result.FAILED, true)
                 );
