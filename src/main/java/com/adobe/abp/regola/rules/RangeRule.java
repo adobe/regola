@@ -13,13 +13,11 @@ package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
-import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import jdk.jfr.Experimental;
@@ -135,111 +133,57 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
 
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
-        return new EvaluationResult() {
-            private final LeafCancellation cancellation = new LeafCancellation();
-            private volatile Result result = Result.MAYBE;
-            private volatile T evaluatedFact;
-            private volatile String message;
-            private volatile Throwable cause;
-
+        return new LeafEvaluationResult<T>(this, factsResolver) {
             @Override
-            public RuleResult snapshot() {
-                return ValuesRuleResult.<T>builder().with(r -> {
-                    r.type = getType();
-                    r.key = getKey();
-                    r.operator = getOperator();
-                    r.description = getDescription();
-                    r.result = result;
-                    r.actualValue = evaluatedFact;
-                    r.expectedValues = generateExpectedValues();
-                    r.message = message;
-                    r.cause = cause;
-                    r.ignored = isIgnore();
-                    r.skipped = cancellation.isSkipped();
-                    r.cancelled = cancellation.isCancelled();
-                }).build();
-            }
-
-            @Override
-            public CompletableFuture<Result> status() {
-                return cancellation.start(this::evaluateFact);
-            }
-
-            @Override
-            public void cancel() {
-                cancellation.cancel(() -> Optional.ofNullable(getAction())
-                        .ifPresent(action -> action.onCancellation(snapshot())));
-            }
-
-            private CompletableFuture<Result> evaluateFact() {
+            CompletableFuture<LeafOutcome<T>> evaluateRule() {
                 if (!SUPPORTED_OPERATORS.contains(getOperator())) {
-                    return cancellation.evaluateAsync(() -> {
-                                result = Result.OPERATION_NOT_SUPPORTED;
-                                return result;
-                            }, executor)
-                            .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                    .filter(action -> cancellation.commit())
-                                    .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
+                    return runCheckAsync(
+                            () -> LeafOutcome.of(Result.OPERATION_NOT_SUPPORTED), executor);
                 }
 
-                return resolveFact(cancellation, factsResolver, getKey())
-                        .thenCompose(fact -> cancellation.evaluateAsync(
-                                () -> handleSuccess(fact), executor))
-                        .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .filter(action -> cancellation.commit())
-                                .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
-                        .exceptionally(this::handleFailure);
+                return castFact(resolveFact())
+                        .thenCompose(fact -> runCheckAsync(() -> handleSuccess(fact), executor));
             }
 
-            private Result handleSuccess(T fact) {
+            @Override
+            void describeExpectation(ValuesRuleResult.RuleResultBuilder<T> ruleResult) {
+                ruleResult.operator = getOperator();
+                ruleResult.expectedValues = generateExpectedValues();
+            }
+
+            private LeafOutcome<T> handleSuccess(T fact) {
                 if (fact == null) {
-                    result = Result.INVALID;
-                    return result;
+                    return LeafOutcome.of(Result.INVALID);
                 }
 
-                evaluatedFact = fact;
-                result = evaluateRange(fact);
-                return result;
+                return evaluateRange(fact);
             }
 
-            private Result evaluateRange(T fact) {
+            private LeafOutcome<T> evaluateRange(T fact) {
                 var operator = getOperator();
 
                 if (operator == Operator.BETWEEN) {
                     if (min == null || max == null) {
-                        message = "min or max are null";
-                        return Result.FAILED;
+                        return LeafOutcome.failed("min or max are null", fact);
                     }
-                    return evaluateBetween(fact);
+                    return LeafOutcome.ofValue(evaluateBetween(fact), fact);
                 }
 
                 if (operator == Operator.IS_BEFORE) {
                     if (min == null) {
-                        message = "min is null";
-                        return Result.FAILED;
+                        return LeafOutcome.failed("min is null", fact);
                     }
-                    return evaluateIsBefore(fact);
+                    return LeafOutcome.ofValue(evaluateIsBefore(fact), fact);
                 }
 
                 if (operator == Operator.IS_AFTER) {
                     if (max == null) {
-                        message = "max is null";
-                        return Result.FAILED;
+                        return LeafOutcome.failed("max is null", fact);
                     }
-                    return evaluateIsAfter(fact);
+                    return LeafOutcome.ofValue(evaluateIsAfter(fact), fact);
                 }
 
-                return Result.OPERATION_NOT_SUPPORTED;
-            }
-
-            private Result handleFailure(Throwable throwable) {
-                if (!cancellation.commit()) {
-                    return result;
-                }
-                message = throwable.getMessage();
-                cause = throwable;
-                result = Result.FAILED;
-                return result;
+                return LeafOutcome.ofValue(Result.OPERATION_NOT_SUPPORTED, fact);
             }
         };
     }
@@ -271,8 +215,8 @@ public class RangeRule<T extends Comparable<T>> extends OperatorBasedRule {
     }
 
     @SuppressWarnings("unchecked")
-    private CompletableFuture<T> resolveFact(LeafCancellation cancellation, FactsResolver factsResolver, String key) {
-        return cancellation.resolveFact(factsResolver, key)
+    private CompletableFuture<T> castFact(CompletableFuture<Object> resolved) {
+        return resolved
                 .thenApply(f -> {
                     if (f == null) {
                         return null;

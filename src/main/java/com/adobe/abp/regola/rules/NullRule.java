@@ -13,10 +13,7 @@ package com.adobe.abp.regola.rules;
 
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
-import com.adobe.abp.regola.results.RuleResult;
-import com.adobe.abp.regola.results.ValuesRuleResult;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -65,63 +62,17 @@ public class NullRule extends KeyBasedRule {
 
     @Override
     public EvaluationResult evaluate(FactsResolver factsResolver) {
-        return new EvaluationResult() {
-            private final LeafCancellation cancellation = new LeafCancellation();
-            private volatile Result result = Result.MAYBE;
-            private volatile Object evaluatedFact;
-            private volatile String message;
-            private volatile Throwable cause;
-
+        return new LeafEvaluationResult<Object>(this, factsResolver) {
             @Override
-            public RuleResult snapshot() {
-                return ValuesRuleResult.builder().with(r -> {
-                    r.type = getType();
-                    r.key = getKey();
-                    r.description = getDescription();
-                    r.result = result;
-                    r.expectedValue = null;
-                    r.actualValue = evaluatedFact;
-                    r.message = message;
-                    r.cause = cause;
-                    r.ignored = isIgnore();
-                    r.skipped = cancellation.isSkipped();
-                    r.cancelled = cancellation.isCancelled();
-                }).build();
-            }
-
-            @Override
-            public CompletableFuture<Result> status() {
-                return cancellation.start(this::evaluateFact);
-            }
-
-            @Override
-            public void cancel() {
-                cancellation.cancel(() -> Optional.ofNullable(getAction())
-                        .ifPresent(action -> action.onCancellation(snapshot())));
-            }
-
-            private CompletableFuture<Result> evaluateFact() {
-                return cancellation.resolveFact(factsResolver, getKey())
-                        .thenCompose(fact -> cancellation.evaluateAsync(() -> {
-                            evaluatedFact = fact;
-                            result = Optional.ofNullable(fact)
-                                    .map(f -> Result.INVALID)
-                                    .orElse(Result.VALID);
-                            return result;
-                        }, executor))
-                        .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .filter(action -> cancellation.commit())
-                                .ifPresent(action -> action.onCompletion(result, throwable, snapshot())))
-                        .exceptionally(throwable -> {
-                            if (!cancellation.commit()) {
-                                return result;
-                            }
-                            message = throwable.getMessage();
-                            cause = throwable;
-                            result = Result.FAILED;
-                            return result;
-                        });
+            CompletableFuture<LeafOutcome<Object>> evaluateRule() {
+                return resolveFact()
+                        .thenCompose(fact -> runCheckAsync(
+                                () -> LeafOutcome.ofValue(check(fact), fact), executor));
             }
         };
+    }
+
+    private static Result check(Object fact) {
+        return fact == null ? Result.VALID : Result.INVALID;
     }
 }

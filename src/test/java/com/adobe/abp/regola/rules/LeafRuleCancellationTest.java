@@ -21,7 +21,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -34,6 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +60,27 @@ class LeafRuleCancellationTest {
                         .setKey(KEY)),
                 Arguments.of("ExistsRule", (Supplier<Rule>) () -> new ExistsRule(KEY)),
                 Arguments.of("NullRule", (Supplier<Rule>) () -> new NullRule(KEY)));
+    }
+
+    static Stream<Arguments> synchronousLeafRules() {
+        final Executor direct = Runnable::run;
+        return Stream.of(
+                Arguments.of(
+                        "StringRule EQUALS",
+                        (Supplier<Rule>) () -> new StringRule(KEY, Operator.EQUALS, "value")),
+                Arguments.of("SetRule IN", (Supplier<Rule>) () -> new SetRule<String>(direct)
+                        .setValues(Set.of("value"))
+                        .setOperator(Operator.IN)
+                        .setKey(KEY)),
+                Arguments.of(
+                        "RangeRule BETWEEN",
+                        (Supplier<Rule>) () -> new RangeRule<Integer>(direct)
+                                .setMin(1)
+                                .setMax(10)
+                                .setOperator(Operator.BETWEEN)
+                                .setKey(KEY)),
+                Arguments.of("ExistsRule", (Supplier<Rule>) () -> new ExistsRule(direct, KEY)),
+                Arguments.of("NullRule", (Supplier<Rule>) () -> new NullRule(direct, KEY)));
     }
 
     static Stream<Arguments> queuedLeafRules() {
@@ -242,5 +267,152 @@ class LeafRuleCancellationTest {
 
         assertThat(result).isNotEqualTo(Result.MAYBE);
         assertThat(evaluationResult.get().snapshot().getResult()).isEqualTo(result);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should cancel the status when cancelled while the fact is being requested")
+    void cancelWhileRequestingFact(String name, Supplier<Rule> ruleSupplier) throws Exception {
+        final var fact = new CompletableFuture<Object>();
+        final var requesting = new CountDownLatch(1);
+        final var releaseRequest = new CountDownLatch(1);
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY))
+                .thenAnswer(invocation -> {
+                    requesting.countDown();
+                    await(releaseRequest);
+                    return fact;
+                });
+        when(resolver.supportsCancellation())
+                .thenReturn(true);
+        final var completions = new AtomicInteger();
+        final var rule = ruleSupplier.get();
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> completions.incrementAndGet()));
+        final var evaluationResult = rule.evaluate(resolver);
+        final var starter = Executors.newSingleThreadExecutor();
+        try {
+            final var starting = CompletableFuture.supplyAsync(evaluationResult::status, starter);
+            await(requesting);
+
+            evaluationResult.cancel();
+            releaseRequest.countDown();
+            final var status = starting.get(3, TimeUnit.SECONDS);
+
+            assertThat(status)
+                    .isCancelled();
+            assertThat(fact)
+                    .isCancelled();
+            assertThat(evaluationResult.snapshot())
+                    .extracting(RuleResult::getResult, RuleResult::isCancelled)
+                    .containsExactly(Result.MAYBE, true);
+            assertThat(completions)
+                    .hasValue(0);
+        } finally {
+            releaseRequest.countDown();
+            starter.shutdownNow();
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should cancel the fact when cancelled re-entrantly while the fact is being requested")
+    void cancelReentrantlyWhileRequestingFact(String name, Supplier<Rule> ruleSupplier) {
+        final var fact = new CompletableFuture<Object>();
+        final var evaluationResult = new AtomicReference<EvaluationResult>();
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY))
+                .thenAnswer(invocation -> {
+                    evaluationResult.get().cancel();
+                    return fact;
+                });
+        when(resolver.supportsCancellation())
+                .thenReturn(true);
+        evaluationResult.set(ruleSupplier.get().evaluate(resolver));
+
+        final var status = evaluationResult.get().status();
+
+        assertThat(fact)
+                .isCancelled();
+        assertThat(status)
+                .isCancelled();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("synchronousLeafRules")
+    @DisplayName("should cancel the status when the fact arrives while onCancellation runs")
+    void factArrivesWhileCancelling(String name, Supplier<Rule> ruleSupplier) throws Exception {
+        final var fact = new CompletableFuture<Object>();
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY))
+                .thenReturn(fact);
+        final var cancelling = new CountDownLatch(1);
+        final var releaseCancellation = new CountDownLatch(1);
+        final var completions = new AtomicInteger();
+        final var rule = ruleSupplier.get();
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> completions.incrementAndGet())
+                .setOnCancellation(ruleResult -> {
+                    cancelling.countDown();
+                    await(releaseCancellation);
+                }));
+        final var evaluationResult = rule.evaluate(resolver);
+        final var status = evaluationResult.status();
+        final var canceller = Executors.newSingleThreadExecutor();
+        try {
+            final var cancelled = CompletableFuture.runAsync(evaluationResult::cancel, canceller);
+            await(cancelling);
+
+            fact.complete("value");
+            releaseCancellation.countDown();
+            cancelled.get(3, TimeUnit.SECONDS);
+
+            assertThat(status)
+                    .isCancelled();
+            assertThat(evaluationResult.snapshot())
+                    .extracting(RuleResult::getResult, RuleResult::isCancelled)
+                    .containsExactly(Result.MAYBE, true);
+            assertThat(completions)
+                    .hasValue(0);
+        } finally {
+            releaseCancellation.countDown();
+            canceller.shutdownNow();
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leafRules")
+    @DisplayName("should evaluate once and return the same status when requested again")
+    void repeatedStatus(String name, Supplier<Rule> ruleSupplier) {
+        final var resolver = mock(FactsResolver.class);
+        when(resolver.resolveFact(KEY))
+                .thenReturn(CompletableFuture.completedFuture("value"));
+        final var completions = new AtomicInteger();
+        final var rule = ruleSupplier.get();
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> completions.incrementAndGet()));
+        final var evaluationResult = rule.evaluate(resolver);
+        final var status = evaluationResult.status();
+        status.join();
+
+        final var repeated = evaluationResult.status();
+
+        assertThat(repeated)
+                .isSameAs(status);
+        verify(resolver)
+                .resolveFact(KEY);
+        assertThat(completions)
+                .hasValue(1);
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(3, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Latch was not released");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for latch", e);
+        }
     }
 }
