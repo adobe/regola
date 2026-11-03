@@ -16,7 +16,9 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -75,5 +77,92 @@ class ConstantRuleTest {
         RuleTestUtils.evaluateAndTest(rule, resolver, ruleResultBuilder, Result.VALID);
 
         assertThat(integerAtomicReference.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("run the completion action once across repeated status() calls")
+    void actionOnCompletionRunsOnce() {
+        final var completions = new AtomicInteger();
+        final var rule = new ConstantRule(Result.VALID);
+        rule.setAction(new Action()
+                .setOnCompletion((result, throwable, ruleResult) -> completions.incrementAndGet()));
+
+        final var evaluationResult = rule.evaluate(resolver);
+        evaluationResult.status();
+        evaluationResult.status();
+
+        assertThat(completions)
+                .hasValue(1);
+    }
+
+    @Test
+    @DisplayName("report that it is ignored")
+    void reportsIgnored() {
+        final var rule = new ConstantRule(Result.VALID);
+        rule.setIgnore(true);
+
+        final var evaluationResult = rule.evaluate(resolver);
+        evaluationResult.status();
+
+        assertThat(evaluationResult.snapshot().isIgnored())
+                .isTrue();
+    }
+
+    @Nested
+    @DisplayName("when cancelled before being started")
+    class CancellationTest {
+
+        private final AtomicInteger completions = new AtomicInteger();
+        private final AtomicInteger cancellations = new AtomicInteger();
+        private final ConstantRule rule = new ConstantRule(Result.VALID);
+
+        @BeforeEach
+        void setup() {
+            rule.setAction(new Action()
+                    .setOnCompletion((result, throwable, ruleResult) ->
+                            completions.incrementAndGet())
+                    .setOnCancellation(ruleResult -> cancellations.incrementAndGet()));
+        }
+
+        @Test
+        @DisplayName("report MAYBE flagged as skipped")
+        void reportsSkipped() {
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.cancel();
+
+            assertThat(evaluationResult.snapshot())
+                    .extracting(RuleResult::getResult, RuleResult::isSkipped)
+                    .containsExactly(Result.MAYBE, true);
+        }
+
+        @Test
+        @DisplayName("run the cancellation action")
+        void runsCancellationAction() {
+            rule.evaluate(resolver).cancel();
+
+            assertThat(cancellations)
+                    .hasValue(1);
+        }
+
+        @Test
+        @DisplayName("cancel its status")
+        void cancelsStatus() {
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.cancel();
+
+            assertThat(evaluationResult.status())
+                    .isCancelled();
+        }
+
+        @Test
+        @DisplayName("not run the completion action")
+        void doesNotRunCompletionAction() {
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.cancel();
+            evaluationResult.status();
+
+            assertThat(completions)
+                    .hasValue(0);
+        }
     }
 }

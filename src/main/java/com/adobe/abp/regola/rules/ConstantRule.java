@@ -16,7 +16,6 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A rule that always returns the same result, irrespective of the fact.
@@ -46,25 +45,37 @@ public class ConstantRule extends Rule {
 
     @Override
     public EvaluationResult evaluate(FactsResolver facts) {
-        return new EvaluationResult() {
-            private Result result = Result.MAYBE; // Initial value is always MAYBE
+        return new LockingEvaluationResult() {
 
             @Override
-            public RuleResult snapshot() {
-                return RuleResult.baseBuilder().with(r -> {
-                            r.type = getType();
-                            r.result = result;
-                            r.description = getDescription();
-                        })
-                        .build();
+            protected void startEvaluation() {
+                complete(ConstantRule.this.result);
             }
 
             @Override
-            public CompletableFuture<Result> status() {
-                result = ConstantRule.this.result;
-                return CompletableFuture.completedFuture(result)
-                        .whenComplete((result, throwable) -> Optional.ofNullable(getAction())
-                                .ifPresent(action -> action.onCompletion(result, throwable, snapshot())));
+            protected void afterCancellation() {
+                Optional.ofNullable(getAction())
+                        .ifPresent(action -> action.onCancellation(snapshot()));
+            }
+
+            @Override
+            protected void afterCompletion(Result completedResult, Throwable throwable) {
+                Optional.ofNullable(getAction())
+                        .ifPresent(action -> action.onCompletion(
+                                completedResult, throwable, snapshot()));
+            }
+
+            @Override
+            public RuleResult snapshot() {
+                final Result capturedResult = getResult();
+                return RuleResult.baseBuilder().with(r -> {
+                    r.type = getType();
+                    r.description = getDescription();
+                    r.result = capturedResult;
+                    r.ignored = isIgnore();
+                    r.skipped = isSkipped();
+                    r.cancelled = isCancelled();
+                }).build();
             }
         };
     }
