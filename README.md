@@ -164,9 +164,7 @@ Skipped and cancelled subrules report `MAYBE` and run their action's `onCancella
 instead of `onCompletion` (see [Cancellation](#cancellation)). Their `RuleResult` tells
 them apart from a rule that genuinely evaluated to `MAYBE`: `isSkipped()` is `true` for a subrule
 that was never started, `isCancelled()` for one that was started but not decided. In JSON, `skipped`
-and `cancelled` only appear when `true`. With asynchronous data
-fetchers, all subrules are usually started before any of them completes, so most of the saving comes
-from cancellation.
+and `cancelled` only appear when `true`.
 
 You can also cancel a whole evaluation, for example when the caller no longer needs the result:
 
@@ -180,6 +178,21 @@ evaluationResult.cancel();
 `status` then completes with a `CancellationException`, the rules that had not completed report
 `MAYBE` and are marked as skipped or cancelled, and their actions run `onCancellation`. Cancelling an
 evaluation that has already completed has no effect.
+
+##### Ordering subrules
+
+Whether an AND or OR evaluates to VALID never depends on timing, but which subrules end up skipped
+or cancelled does, and so does which non-VALID result an AND reports: the first one to complete.
+A subrule is skipped only if a sibling listed before it completes while subrules are still
+being started, which happens when its fact is already available, for example a cached value or a
+synchronous data fetcher. With asynchronous data fetchers, all subrules are usually started before
+any of them completes, so most of the saving comes from cancellation.
+
+To save the most work, list first the subrules that are cheap to evaluate or likely to decide the
+result: for an AND, those most likely to be not VALID; for an OR, those most likely to be VALID.
+
+Because it depends on timing, do not rely on which subrules of a result are skipped, cancelled or
+completed, for example in tests, unless the facts they need complete in a known order.
 
 ##### What cancellation stops, and what it does not
 
