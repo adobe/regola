@@ -133,6 +133,25 @@ class RangeRuleTest {
             rule.setKey(RULE_KEY);
         }
 
+        @Test
+        @DisplayName("evaluate as failed if fact type does not match the range")
+        void factTypeDoesNotMatchRange() {
+            rule.setOperator(Operator.BETWEEN);
+            rule.setMin(1);
+            rule.setMax(10);
+
+            when(resolver.resolveFact(RULE_KEY))
+                    .thenReturn(CompletableFuture.supplyAsync(() -> "not-an-integer"));
+
+            var evaluation = rule.evaluate(resolver);
+
+            assertThat(evaluation.status().join())
+                    .isEqualTo(Result.FAILED);
+            assertThat(evaluation.snapshot().getCause())
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Fact must match type of the rule's range");
+        }
+
         @Nested
         @DisplayName("value is between a range")
         class Between {

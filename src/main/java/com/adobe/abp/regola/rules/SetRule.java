@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -38,6 +39,8 @@ import org.apache.commons.collections4.CollectionUtils;
  * @param <T> type of the fact
  */
 public class SetRule<T> extends OperatorBasedRule {
+
+    private static final String TYPE_MISMATCH = "Fact must match type of the rule's values";
 
     private Set<T> values;
     private final Executor executor;
@@ -77,15 +80,16 @@ public class SetRule<T> extends OperatorBasedRule {
             @Override
             CompletableFuture<LeafOutcome<T>> evaluateRule() {
                 if (getOperator() == Operator.IN) {
-                    return castFact(resolveFact())
+                    return exposeTypeMismatch(castFact(resolveFact())
                             .thenCompose(fact -> runCheckAsync(
-                                    () -> handleSuccess(f -> checkIn(f), fact), executor));
+                                    () -> handleSuccess(f -> checkIn(f), fact), executor)));
                 }
 
                 if (getOperator() == Operator.INTERSECTS) {
-                    return castFact(resolveFact())
+                    return exposeTypeMismatch(castFact(resolveFact())
                             .thenCompose(fact -> runCheckAsync(
-                                    () -> handleSuccess(f -> checkIntersects(f), fact), executor));
+                                    () -> handleSuccess(f -> checkIntersects(f), fact),
+                                    executor)));
                 }
 
                 return runCheckAsync(
@@ -140,19 +144,67 @@ public class SetRule<T> extends OperatorBasedRule {
 
     @SuppressWarnings("unchecked")
     private CompletableFuture<T> castFact(CompletableFuture<Object> resolved) {
-        return resolved
-                .thenApply(f -> {
-                            if (f == null) {
-                                return null;
-                            }
+        return resolved.thenApply(fact -> {
+            if (fact == null) {
+                return null;
+            }
+            requireMatchingFact(fact);
+            return (T) fact;
+        });
+    }
 
-                            try {
-                                return (T) f;
-                            } catch (ClassCastException e) {
-                                throw new IllegalArgumentException("Fact must match type of the rule's values", e);
-                            }
-                        }
-                );
+    private void requireMatchingFact(Object fact) {
+        Class<?> witness = valueWitness();
+        if (witness == null) {
+            return;
+        }
+        if (!(fact instanceof Collection)) {
+            requireInstance(witness, fact);
+            return;
+        }
+        for (Object element : (Collection<?>) fact) {
+            requireInstance(witness, element);
+        }
+    }
+
+    private void requireInstance(Class<?> witness, Object value) {
+        if (value != null && !witness.isInstance(value)) {
+            throw new IllegalArgumentException(TYPE_MISMATCH);
+        }
+    }
+
+    private Class<?> valueWitness() {
+        if (values == null) {
+            return null;
+        }
+        for (T value : values) {
+            if (value != null) {
+                return value.getClass();
+            }
+        }
+        return null;
+    }
+
+    private CompletableFuture<LeafOutcome<T>> exposeTypeMismatch(
+            CompletableFuture<LeafOutcome<T>> checked) {
+        var exposed = new CompletableFuture<LeafOutcome<T>>();
+        checked.whenComplete((outcome, failure) -> {
+            if (failure == null) {
+                exposed.complete(outcome);
+                return;
+            }
+            exposed.completeExceptionally(typeMismatchOrSame(failure));
+        });
+        return exposed;
+    }
+
+    private Throwable typeMismatchOrSame(Throwable failure) {
+        Throwable cause = failure instanceof CompletionException ? failure.getCause() : failure;
+        if (cause instanceof IllegalArgumentException
+                && TYPE_MISMATCH.equals(cause.getMessage())) {
+            return cause;
+        }
+        return failure;
     }
 
     @Override
