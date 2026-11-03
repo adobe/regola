@@ -1026,9 +1026,19 @@ The following is an example of a result (pretty printed in json) returned upon e
 }
 ```
 
-The top-level `"result"` is the overall result of the rule.
-- If VALID, the subresults must be all VALID or MAYBE (i.e., rule did not need to be evaluated due to short-circuiting).
-- If not VALID, one or more of the subresults are: INVALID, OPERATION_NOT_SUPPORTED or FAILED.
+The top-level `"result"` is the overall result of the rule. How it relates to the subresults
+depends on the rule type:
+- **AND** is `VALID` only if every subrule that is not ignored is `VALID`. Otherwise it reports
+  the result of a subrule that is not `VALID`: `INVALID`, `MAYBE`, `FAILED` or
+  `OPERATION_NOT_SUPPORTED`.
+- **OR** is `VALID` if at least one subrule that is not ignored is `VALID`; the others can have
+  any result. Otherwise it reports the most severe subresult (see [Or Rule](#or-rule)).
+- **NOT** inverts `VALID` and `INVALID`, and passes other results through unchanged.
+
+Some subresults do not affect the top-level result:
+- ignored subrules, whatever they report.
+- subrules that were not needed because of [short-circuiting](#short-circuiting). They report
+  `MAYBE` with `skipped` or `cancelled` set to `true`.
 
 ## Oh, by the way, what does "regola" mean?
 
