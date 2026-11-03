@@ -152,21 +152,32 @@ An empty `OR` evaluates to `INVALID`. This follows the identity of disjunction: 
 
 #### Short-circuiting
 
-AND and OR stop as soon as their result is decided: an AND by its first subrule that is not VALID,
-an OR by its first VALID subrule. Ignored subrules never decide the result.
+An AND or OR stops evaluating as soon as its result is known:
+- an AND stops at the first subrule that is not VALID, since the AND can no longer be VALID.
+- an OR stops at the first subrule that is VALID, since the OR is then VALID.
 
-Subrules are started in the order they are listed, without waiting for one another. Once the result
-is decided:
-- subrules that have not been started yet are skipped.
-- subrules that are still running are cancelled.
+Ignored subrules never stop an AND or OR (see [Ignoring results](#ignoring-results)).
 
-Skipped and cancelled subrules report `MAYBE` and run their action's `onCancellation` callback
-instead of `onCompletion` (see [Cancellation](#cancellation)). Their `RuleResult` tells
-them apart from a rule that genuinely evaluated to `MAYBE`: `isSkipped()` is `true` for a subrule
-that was never started, `isCancelled()` for one that was started but not decided. In JSON, `skipped`
-and `cancelled` only appear when `true`.
+All subrules are started one after the other, in the order they are listed, without waiting for
+each other to finish. When the result becomes known, the remaining subrules are stopped:
 
-You can also cancel a whole evaluation, for example when the caller no longer needs the result:
+| Subrule state when the result is known | What happens                   | Flag in its `RuleResult`  |
+|----------------------------------------|--------------------------------|---------------------------|
+| Not started yet                        | Skipped: it is never started   | `isSkipped()` is `true`   |
+| Started, still running                 | Cancelled: its work is stopped | `isCancelled()` is `true` |
+| Already finished                       | Nothing: it keeps its result   | neither                   |
+
+A skipped or cancelled subrule reports `MAYBE`, because its result was never decided. The flags
+tell it apart from a subrule that really evaluated to `MAYBE`. In JSON, `"skipped": true` and
+`"cancelled": true` are only written when set, so results of rules that ran look the same as
+before.
+
+If a skipped or cancelled subrule has an action, its `onCancellation` callback runs instead of
+`onCompletion` (see [Cancellation](#cancellation)).
+
+##### Cancelling an evaluation
+
+You can also stop a whole evaluation yourself, for example when you no longer need its result:
 
 ```java
 final var evaluationResult = rule.evaluate(factsResolver);
@@ -175,56 +186,81 @@ final var status = evaluationResult.status();
 evaluationResult.cancel();
 ```
 
-`status` then completes with a `CancellationException`, the rules that had not completed report
-`MAYBE` and are marked as skipped or cancelled, and their actions run `onCancellation`. Cancelling an
-evaluation that has already completed has no effect.
+After `cancel()`:
+- `status` completes with a `CancellationException`.
+- every rule that had not finished reports `MAYBE`, flagged as skipped or cancelled as described
+  above, and its action runs `onCancellation`.
+
+If the evaluation has already finished, `cancel()` does nothing: the result and the actions that
+ran are left as they are.
 
 ##### Ordering subrules
 
-Whether an AND or OR evaluates to VALID never depends on timing, but which subrules end up skipped
-or cancelled does, and so does which non-VALID result an AND reports: the first one to complete.
-A subrule is skipped only if a sibling listed before it completes while subrules are still
-being started, which happens when its fact is already available, for example a cached value or a
-synchronous data fetcher. With asynchronous data fetchers, all subrules are usually started before
-any of them completes, so most of the saving comes from cancellation.
+Whether an AND or OR is VALID does not depend on the order in which its subrules finish. What can
+change from one run to the next is which subrules get skipped or cancelled, because that depends on
+how fast each fact arrives.
 
-To save the most work, list first the subrules that are cheap to evaluate or likely to decide the
-result: for an AND, those most likely to be not VALID; for an OR, those most likely to be VALID.
+Some things to know:
+- A subrule is skipped only when an earlier subrule finishes before the later one has been
+  started. In practice this happens when the earlier subrule's fact is available straight away,
+  for example from a cache or a data fetcher that does not return asynchronously.
+- With asynchronous data fetchers, all subrules are usually started before any of them finishes.
+  Then nothing is skipped, and the saving comes from cancelling the subrules still running.
+- When an AND is not VALID, it reports the result of the first subrule to finish that is not
+  VALID. If one subrule is INVALID and another FAILED, either result may be reported.
 
-Because it depends on timing, do not rely on which subrules of a result are skipped, cancelled or
-completed, for example in tests, unless the facts they need complete in a known order.
+To save the most work, list first the subrules that are cheap to evaluate or most likely to decide
+the result:
+- in an AND, the subrules most likely to be not VALID.
+- in an OR, the subrules most likely to be VALID.
+
+Do not write code or tests that expect particular subrules to be skipped, cancelled or finished,
+unless you control the order in which their facts arrive.
 
 ##### What cancellation stops, and what it does not
 
-Cancellation is best effort. It stops work that has not started yet; it does not interrupt work
-that is already running.
+Cancellation only stops work that has not started yet. It never interrupts work that is already
+running.
 
 Stopped:
 - subrules that have not been started yet.
-- fact fetches still waiting for a thread on the `SimpleFactsResolver` executor: the data fetcher is
-  not called.
-- rule checks that have not run yet. `SetRule`, `RangeRule`, `ExistsRule` and `NullRule` queue
-  their check on the rule's executor, and skip it if cancelled while it is queued. `StringRule`,
-  `NumberRule` and `DateRule` run their check on the thread that completes the fact, and skip it if
-  cancelled before the fact is available.
-- `onCompletion` callbacks of cancelled rules: `onCancellation` runs instead.
+- data fetches waiting for a thread on the `SimpleFactsResolver` executor. The data fetcher is not
+  called.
+- rule checks that have not run yet:
+  - `SetRule`, `RangeRule`, `ExistsRule` and `NullRule` wait for a thread on the rule's executor to
+    run their check. The check is skipped if the rule is cancelled while it waits.
+  - `StringRule`, `NumberRule` and `DateRule` run their check as soon as the fact arrives. The check
+    is skipped only if the rule is cancelled before the fact arrives.
+- `onCompletion` callbacks of cancelled rules. `onCancellation` runs instead.
 
 Not stopped:
-- a data fetch that has already started. It runs to completion and its result is still cached and
-  shared with other rules that need the same data.
-- fetches made without a `SimpleFactsResolver` executor. They start on the calling thread as soon as a
-  rule needs the fact, so there is nothing left to skip.
-- a rule check or an action that is already running when the cancellation arrives.
+- a data fetch that has already started. It runs to the end, and its result is still cached and
+  shared with the other rules that need the same data.
+- data fetches when the `SimpleFactsResolver` has no executor. The data fetcher is called straight
+  away on the thread that needs the fact, so the fetch has always started by the time a
+  cancellation arrives.
+- a rule check or an action that is already running.
 
-Rules cancel the future returned by a `FactsResolver` only if its `supportsCancellation()` returns
-`true`, as `SimpleFactsResolver` does. If you write your own `FactsResolver`, it keeps working
-unchanged: by default rules stop waiting for an unneeded fact but leave its future untouched, so a
-future shared between callers is never cancelled. Override `supportsCancellation()` to return `true`
-only if each `resolveFact` call returns a new future. If you write your own rule, override
-`EvaluationResult.cancel()` to stop its work; the default does nothing.
+##### Custom facts resolvers and rules
 
-A subrule whose fact cannot be fetched evaluates to `FAILED`, whether the data fetcher returns a
-failed future or throws.
+When a rule is cancelled, it stops waiting for its fact. Whether it also cancels the fact's future
+depends on the `FactsResolver`:
+- `SimpleFactsResolver` returns a new future for each request, so it is safe to cancel. Its
+  `supportsCancellation()` returns `true`.
+- Other resolvers might return a future that is shared with other rules, for example from a cache.
+  Cancelling it would make those rules fail. So by default `supportsCancellation()` returns
+  `false`, and the future is left alone.
+
+If you write your own `FactsResolver`, you do not need to change anything. Override
+`supportsCancellation()` to return `true` only if every call to `resolveFact` returns a new future.
+
+If you write your own rule, override `EvaluationResult.cancel()` to stop its work. By default,
+`cancel()` does nothing.
+
+##### Failed data fetches
+
+A subrule whose fact cannot be fetched evaluates to `FAILED`. This is the same whether the data
+fetcher returns a failed future or throws an exception.
 
 #### Not Rule
 
@@ -892,9 +928,9 @@ In this particular example, this action will be executed when the rule is evalua
 
 ### Cancellation
 
-When a rule is skipped or cancelled, for example by [short-circuiting](#short-circuiting), its
-action runs `onCancellation` instead of `onCompletion`. The callback receives the rule's
-`RuleResult`, with `isSkipped()` or `isCancelled()` set:
+An action can also run when its rule is skipped or cancelled, for example because of
+[short-circuiting](#short-circuiting). Set an `onCancellation` callback for this. It receives the
+rule's `RuleResult`, where `isSkipped()` or `isCancelled()` is `true`:
 
 ```java
 var action = new Action()
@@ -902,10 +938,17 @@ var action = new Action()
     .setOnCancellation(ruleResult -> audit(ruleResult));
 ```
 
-Exactly one of the two callbacks runs for each evaluation that is decided or cancelled. Either
-callback may be left unset. `onCancellation` runs on the thread that cancels the rule, before the
-rule's `status` future is cancelled. If it throws, the exception propagates to whoever called
-`cancel()`; a boolean rule cancelling its subrules ignores it and still cancels the remaining ones.
+For each evaluation of a rule, exactly one of the two callbacks runs:
+- `onCompletion` when the rule finishes.
+- `onCancellation` when the rule is skipped or cancelled before it finishes.
+
+You can set either callback, both or neither.
+
+`onCancellation` runs on the thread that calls `cancel()`, before the rule's `status` future is
+cancelled. If it throws an exception:
+- when you called `cancel()` yourself, the exception is thrown from `cancel()`.
+- when an AND, OR or NOT cancels its subrules, the exception is ignored and the remaining subrules
+  are still cancelled.
 
 ### Chaining
 
@@ -967,7 +1010,7 @@ The following is an example of a result (pretty printed in json) returned upon e
           "operator": "EQUALS",
           "key": "foobar",
           "expectedValue": 21,
-          // no actual value for MAYBE, since the rule was not evaluated due to short-circuiting
+          "skipped": true // the OR was already VALID, so this rule was never evaluated and has no actual value
         }
       ]
     }
