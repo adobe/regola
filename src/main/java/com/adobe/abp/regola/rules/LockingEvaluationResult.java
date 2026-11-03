@@ -58,6 +58,9 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     private volatile boolean skipped;
     private volatile boolean cancelled;
 
+    // Written at most once, while the subclass is being constructed, by createSubrules().
+    private volatile Throwable creationFailure;
+
     // ── Protected accessors for subclass decision logic ──────────────────────────────────────────
 
     /**
@@ -232,6 +235,28 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
     }
 
     /**
+     * Create the evaluations of the subrules while this evaluation is constructed.
+     *
+     * <p>A failure, such as a {@code null} subrule, is not thrown: the first {@link #status()} call
+     * completes the evaluation exceptionally with it instead of calling {@link #startEvaluation()},
+     * as if starting the evaluation had failed.</p>
+     *
+     * @param <T>      the type holding the subrule evaluations
+     * @param creation creates the subrule evaluations without starting them
+     * @param fallback returned instead if {@code creation} fails
+     *
+     * @return the subrule evaluations, or {@code fallback} if creating them failed
+     */
+    protected final <T> T createSubrules(Supplier<T> creation, T fallback) {
+        try {
+            return creation.get();
+        } catch (Throwable t) {
+            creationFailure = t;
+            return fallback;
+        }
+    }
+
+    /**
      * Cancel a child evaluation, ignoring any failure so that it cannot prevent the remaining
      * children from being cancelled.
      */
@@ -323,6 +348,11 @@ public abstract class LockingEvaluationResult implements EvaluationResult {
             lock.unlock();
         }
         if (shouldStart) {
+            final Throwable failure = creationFailure;
+            if (failure != null) {
+                completeExceptionally(failure);
+                return status;
+            }
             try {
                 startEvaluation();
             } catch (Throwable t) {

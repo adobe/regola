@@ -43,6 +43,16 @@ public class OrRule extends MultiaryBooleanRule {
     public EvaluationResult evaluate(FactsResolver factsResolver) {
         return new LockingEvaluationResult() {
 
+            private final List<Rule> rules = getRules();
+
+            // Created up front, without starting them, so that cancelling this evaluation reaches
+            // every subrule and snapshots report the whole tree even before status() is called.
+            private final List<EvaluationResult> results = createSubrules(
+                    () -> rules.stream()
+                            .map(rule -> rule.evaluate(factsResolver))
+                            .collect(Collectors.toList()),
+                    List.of());
+
             // Priority of the results based on their position in this list.
             // First entries have higher priority.
             // So, for example INVALID || FAILED == FAILED
@@ -51,19 +61,10 @@ public class OrRule extends MultiaryBooleanRule {
             // The following mutable fields are accessed only inside decideUnderLock (under the lock).
             private Result intermediateResult = RESULT_PRIORITY.get(RESULT_PRIORITY.size() - 1); // Result with least priority
             private int ignoredRulesCounter;
-            private int rulesToEvaluate = getRules().size();
-
-            // Child results, published once in startEvaluation() before any callback is wired up.
-            private volatile List<EvaluationResult> results = List.of();
+            private int rulesToEvaluate = rules.size();
 
             @Override
             protected void startEvaluation() {
-                final List<Rule> rules = getRules();
-                final List<EvaluationResult> evaluated = rules.stream()
-                        .map(rule -> rule.evaluate(factsResolver))
-                        .collect(Collectors.toList());
-                results = evaluated; // safe publication before the callbacks below can fire
-
                 if (rules.isEmpty()) {
                     complete(Result.INVALID); // empty disjunction is the identity ⇒ INVALID
                     return;
@@ -75,7 +76,7 @@ public class OrRule extends MultiaryBooleanRule {
                 // Once a subrule has decided the result, the remaining subrules are not started.
                 for (int i = 0; i < rules.size() && !isDone(); i++) {
                     final boolean ignore = rules.get(i).isIgnore();
-                    startChild(evaluated.get(i))
+                    startChild(results.get(i))
                             .whenComplete((subresult, throwable) -> evaluateSubresult(subresult, throwable, ignore));
                 }
             }
@@ -96,7 +97,9 @@ public class OrRule extends MultiaryBooleanRule {
                         return Optional.of(Result.VALID); // short-circuit: a VALID subrule satisfies the OR
                     } else if (rulesToEvaluate == 0) {
                         // If all subrules were ignored default to VALID, otherwise return the intermediate result
-                        return Optional.of(ignoredRulesCounter == getRules().size() ? Result.VALID : intermediateResult);
+                        return Optional.of(ignoredRulesCounter == rules.size()
+                                ? Result.VALID
+                                : intermediateResult);
                     }
                     return Optional.empty();
                 });
@@ -127,13 +130,12 @@ public class OrRule extends MultiaryBooleanRule {
 
             @Override
             public RuleResult snapshot() {
-                final List<EvaluationResult> capturedResults = results;
                 final Result capturedResult = getResult();
                 return MultiaryBooleanRuleResult.builder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
                     r.result = capturedResult;
-                    r.rules = capturedResults.stream()
+                    r.rules = results.stream()
                             .map(EvaluationResult::snapshot)
                             .collect(Collectors.toSet());
                     r.ignored = isIgnore();

@@ -15,6 +15,7 @@ import com.adobe.abp.regola.actions.Action;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.mockrules.DelayedRule;
 import com.adobe.abp.regola.mockrules.ExceptionRule;
+import com.adobe.abp.regola.mockrules.ImmediateRule;
 import com.adobe.abp.regola.mockrules.MockRule;
 import com.adobe.abp.regola.mockrules.PendingRule;
 import com.adobe.abp.regola.results.Result;
@@ -22,6 +23,11 @@ import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.UnaryBooleanRuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,6 +93,13 @@ class NotRuleTest {
         }).build();
     }
 
+    private UnaryBooleanRuleResult buildInterimResult(KeyBasedRule subrule) {
+        return ruleResultBuilder.with(r -> {
+            r.result = Result.MAYBE;
+            r.rule = buildRuleResult(subrule, Result.MAYBE, subrule.isIgnore());
+        }).build();
+    }
+
     @Nested
     @DisplayName("with mock rule should")
     class WithMockRuleTest {
@@ -99,7 +112,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -120,7 +133,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -143,7 +156,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -167,7 +180,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -191,7 +204,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -287,7 +300,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -308,7 +321,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             assertThat(evaluationResult.status())
@@ -352,7 +365,7 @@ class NotRuleTest {
 
             final var evaluationResult = rule.evaluate(resolver);
 
-            final var interimResult = ruleResultBuilder.with(r -> r.result = Result.MAYBE).build();
+            final var interimResult = buildInterimResult(subrule);
             assertThat(evaluationResult.snapshot()).isEqualTo(interimResult);
 
             final var result = evaluationResult.status().join();
@@ -380,6 +393,88 @@ class NotRuleTest {
                     .failsWithin(Duration.ofMillis(200));
 
             assertThat(throwableAtomicReference.get()).hasMessageContaining("Intentionally failing this rule with an exception");
+        }
+    }
+
+    @Nested
+    @DisplayName("when cancelling should")
+    class CancellationTest {
+
+        @Test
+        @DisplayName("report its operand as skipped when cancelled before being started")
+        void cancelBeforeStartSkipsOperand() {
+            rule.setRule(new ExistsRule("operand"));
+
+            final var evaluationResult = rule.evaluate(resolver);
+            evaluationResult.cancel();
+
+            assertThat(evaluationResult.snapshot())
+                    .isInstanceOfSatisfying(UnaryBooleanRuleResult.class,
+                            ruleResult -> assertThat(ruleResult.getRule())
+                                    .extracting(RuleResult::isSkipped)
+                                    .isEqualTo(true));
+        }
+
+        @Test
+        @DisplayName("not start its operand when cancelled while starting")
+        void cancelWhileStartingDoesNotStartOperand() throws Exception {
+            final var checkingIgnore = new CountDownLatch(1);
+            final var releaseIgnoreCheck = new CountDownLatch(1);
+            final var operand = new IgnoreCheckBlockingRule(checkingIgnore, releaseIgnoreCheck);
+            final var cancelledSnapshot = new AtomicReference<RuleResult>();
+            rule.setRule(operand);
+            rule.setAction(new Action().setOnCancellation(cancelledSnapshot::set));
+            final var evaluationResult = rule.evaluate(resolver);
+            final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+            try {
+                final var starting = executor.submit(evaluationResult::status);
+                assertThat(checkingIgnore.await(5, TimeUnit.SECONDS))
+                        .isTrue();
+                evaluationResult.cancel();
+                releaseIgnoreCheck.countDown();
+                starting.get(5, TimeUnit.SECONDS);
+            } finally {
+                releaseIgnoreCheck.countDown();
+                executor.shutdownNow();
+            }
+
+            assertThat(operand.getStarts())
+                    .isZero();
+            assertThat(cancelledSnapshot.get())
+                    .isInstanceOfSatisfying(UnaryBooleanRuleResult.class,
+                            ruleResult -> assertThat(ruleResult.getRule())
+                                    .isNotNull());
+        }
+    }
+
+    /**
+     * Blocks the first read of its ignore flag. NOT reads it after being started but before
+     * starting its operand, so blocking it holds the evaluation in between.
+     */
+    private static class IgnoreCheckBlockingRule extends ImmediateRule {
+
+        private final CountDownLatch checking;
+        private final CountDownLatch release;
+        private final AtomicBoolean blocked = new AtomicBoolean();
+
+        IgnoreCheckBlockingRule(CountDownLatch checking, CountDownLatch release) {
+            super("operand", Result.VALID);
+            this.checking = checking;
+            this.release = release;
+        }
+
+        @Override
+        public boolean isIgnore() {
+            if (blocked.compareAndSet(false, true)) {
+                checking.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return super.isIgnore();
         }
     }
 }

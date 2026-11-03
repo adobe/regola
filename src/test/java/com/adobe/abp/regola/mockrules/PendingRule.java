@@ -61,7 +61,9 @@ public class PendingRule extends KeyBasedRule {
 
             @Override
             public CompletableFuture<Result> status() {
-                starts.incrementAndGet();
+                if (!status.isCancelled()) {
+                    starts.incrementAndGet();
+                }
                 return status;
             }
 
