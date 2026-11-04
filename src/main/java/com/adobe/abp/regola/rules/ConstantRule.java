@@ -67,7 +67,7 @@ public class ConstantRule extends Rule {
 
             @Override
             public RuleResult snapshot() {
-                final Result capturedResult = getResult();
+                final Result capturedResult = super.getResult();
                 return RuleResult.baseBuilder().with(r -> {
                     r.type = getType();
                     r.description = getDescription();
