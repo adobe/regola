@@ -81,6 +81,10 @@
         <central.publishing.maven.plugin.version>0.12.0</central.publishing.maven.plugin.version>
         <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
         <jacoco.line.coverage.minimum>0.80</jacoco.line.coverage.minimum>
+        <spotbugs.version>4.10.5</spotbugs.version>
+        <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
+        <spotbugs-maven-plugin.effort>Max</spotbugs-maven-plugin.effort>
+        <spotbugs-maven-plugin.threshold>Medium</spotbugs-maven-plugin.threshold>
 
         <!-- Dependencies versions -->
         <commons.io.version>2.22.0</commons.io.version>
@@ -101,6 +105,34 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-maven-plugin.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs</artifactId>
+                        <version>${spotbugs.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <effort>${spotbugs-maven-plugin.effort}</effort>
+                    <threshold>${spotbugs-maven-plugin.threshold}</threshold>
+                    <xmlOutput>true</xmlOutput>
+                    <excludeFilterFile>${maven.multiModuleProjectDirectory}/ignore.xml</excludeFilterFile>
+                    <failOnError>true</failOnError>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
