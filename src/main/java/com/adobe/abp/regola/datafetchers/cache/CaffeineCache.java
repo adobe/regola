@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-public class CaffeineCache<V> implements DataCache<V> {
+public final class CaffeineCache<V> implements DataCache<V> {
 
     private final transient AsyncCache<String, V> cache;
 
