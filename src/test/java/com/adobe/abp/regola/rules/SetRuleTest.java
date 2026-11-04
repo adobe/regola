@@ -17,6 +17,7 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -40,6 +41,23 @@ class SetRuleTest {
 
     private static final String RULE_KEY = "string_set_fact";
     private static final String INVALID_FACT = "invalid-fact";
+
+    @Test
+    void externalSetMutationsDoNotChangeEvaluation() {
+        final var values = new LinkedHashSet<>(Set.of("value"));
+        final var setRule = new SetRule<String>(Runnable::run);
+        setRule.setValues(values);
+        setRule.setOperator(Operator.IN);
+        setRule.setKey(RULE_KEY);
+        when(resolver.resolveFact(RULE_KEY))
+                .thenReturn(CompletableFuture.completedFuture("value"));
+
+        values.clear();
+        setRule.getValues().clear();
+
+        assertThat(setRule.evaluate(resolver).status().join())
+                .isEqualTo(Result.VALID);
+    }
 
     @Nested
     @DisplayName("with custom executor and with operator")

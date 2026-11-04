@@ -14,6 +14,7 @@ package com.adobe.abp.regola.rules;
 import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.ValuesRuleResult;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -43,7 +44,7 @@ public abstract class SingleValueRule<T> extends OperatorBasedRule {
      */
     public SingleValueRule(String type, Set<Class<?>> factTypes, Executor executor) {
         super(type);
-        this.factTypes = factTypes;
+        this.factTypes = new LinkedHashSet<>(factTypes);
         this.executor = executor;
     }
 

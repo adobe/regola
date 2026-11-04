@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.results;
 
+import com.adobe.abp.regola.utils.collections.CollectionCopies;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.github.fburato.functionalutils.utils.Builder;
 
@@ -23,11 +24,11 @@ public class MultiaryBooleanRuleResult extends RuleResult {
     private Collection<RuleResult> rules;
 
     public Collection<RuleResult> getRules() {
-        return rules;
+        return CollectionCopies.copy(rules);
     }
 
     public void setRules(Collection<RuleResult> rules) {
-        this.rules = rules;
+        this.rules = CollectionCopies.copy(rules);
     }
 
     @Override

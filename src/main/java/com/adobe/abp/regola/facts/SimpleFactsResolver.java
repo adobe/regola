@@ -71,7 +71,7 @@ public class SimpleFactsResolver<C extends Context> implements FactsResolver {
      */
     public SimpleFactsResolver(C context, Map<DataSource, DataFetcher<?, C>> dataFetchers, Executor executor) {
         this.context = context;
-        this.dataFetchers = dataFetchers;
+        this.dataFetchers = new LinkedHashMap<>(dataFetchers);
         this.executor = executor;
     }
 

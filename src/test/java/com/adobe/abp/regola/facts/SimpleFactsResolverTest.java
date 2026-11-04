@@ -16,6 +16,7 @@ import com.adobe.abp.regola.datafetchers.DataFetcher;
 import com.adobe.abp.regola.datafetchers.FetchResponse;
 import com.adobe.abp.regola.datafetchers.cache.DataCache;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -209,6 +210,20 @@ class SimpleFactsResolverTest {
         DataFetcher<MockData, Context> dataFetcher;
 
         private final Context context = mock(Context.class);
+
+        @Test
+        void externalRegistrationChangesDoNotRemoveDataFetchers() {
+            final var registrations = new LinkedHashMap<DataSource, DataFetcher<?, Context>>();
+            registrations.put(TestDataSources.MOCK, new MockDataFetcher(new MockData("ETLA")));
+            final var factsResolver = new SimpleFactsResolver<>(context, registrations);
+            factsResolver.addFact(new Fact<>(TEST_KEY, TestDataSources.MOCK, MockData::getFoo));
+
+            registrations.clear();
+
+            assertThat(factsResolver.resolveFact(TEST_KEY))
+                    .succeedsWithin(Duration.ofSeconds(3))
+                    .isEqualTo("ETLA");
+        }
 
         @Test
         @DisplayName("should resolve a key to a data point if a fact was added for that key")

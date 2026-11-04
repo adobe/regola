@@ -32,6 +32,7 @@ import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -75,6 +76,18 @@ class AndRuleTest {
         rule = new AndRule();
 
         ruleResultBuilder = MultiaryBooleanRuleResult.builder().with(r -> r.type = RuleType.AND.getName());
+    }
+
+    @Test
+    void externalChildListMutationsDoNotChangeEvaluation() {
+        final var children = new ArrayList<Rule>(List.of(new ConstantRule(Result.INVALID)));
+        rule.setRules(children);
+
+        children.clear();
+        rule.getRules().clear();
+
+        assertThat(rule.evaluate(resolver).status().join())
+                .isEqualTo(Result.INVALID);
     }
 
     @Test

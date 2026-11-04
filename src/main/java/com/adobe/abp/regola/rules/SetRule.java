@@ -15,6 +15,7 @@ import com.adobe.abp.regola.facts.FactsResolver;
 import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.ValuesRuleResult;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -66,11 +67,11 @@ public class SetRule<T> extends OperatorBasedRule {
     }
 
     public Set<T> getValues() {
-        return values;
+        return values == null ? null : new LinkedHashSet<>(values);
     }
 
     public SetRule<T> setValues(Set<T> values) {
-        this.values = values;
+        this.values = values == null ? null : new LinkedHashSet<>(values);
         return this;
     }
 
