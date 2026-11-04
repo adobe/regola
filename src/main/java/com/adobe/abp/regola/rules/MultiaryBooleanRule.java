@@ -11,6 +11,7 @@
 
 package com.adobe.abp.regola.rules;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class MultiaryBooleanRule extends Rule {
@@ -22,11 +23,11 @@ public abstract class MultiaryBooleanRule extends Rule {
     }
 
     public List<Rule> getRules() {
-        return rules;
+        return rules == null ? null : new ArrayList<>(rules);
     }
 
     public MultiaryBooleanRule setRules(List<Rule> rules) {
-        this.rules = rules;
+        this.rules = rules == null ? null : new ArrayList<>(rules);
         return this;
     }
 

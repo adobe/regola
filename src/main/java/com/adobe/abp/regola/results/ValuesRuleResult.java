@@ -11,6 +11,7 @@
 package com.adobe.abp.regola.results;
 
 import com.adobe.abp.regola.rules.Operator;
+import com.adobe.abp.regola.utils.collections.CollectionCopies;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.github.fburato.functionalutils.utils.Builder;
 
@@ -52,11 +53,11 @@ public class ValuesRuleResult<T> extends RuleResult {
     }
 
     public Collection<T> getExpectedValues() {
-        return expectedValues;
+        return CollectionCopies.copy(expectedValues);
     }
 
     public void setExpectedValues(Collection<T> expectedValues) {
-        this.expectedValues = expectedValues;
+        this.expectedValues = CollectionCopies.copy(expectedValues);
     }
 
     public T getActualValue() {
@@ -68,11 +69,11 @@ public class ValuesRuleResult<T> extends RuleResult {
     }
 
     public Collection<T> getActualValues() {
-        return actualValues;
+        return CollectionCopies.copy(actualValues);
     }
 
     public void setActualValues(Collection<T> actualValues) {
-        this.actualValues = actualValues;
+        this.actualValues = CollectionCopies.copy(actualValues);
     }
 
     @Override

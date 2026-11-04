@@ -23,11 +23,65 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class RuleResultSerializationTest {
+
+    @Test
+    void valueCollectionsAreIsolatedWithoutLosingSetOrListSemantics() throws IOException {
+        final var expected = new LinkedHashSet<>(Arrays.asList("value", null));
+        final var actual = new ArrayList<>(Arrays.asList("value", "value", null));
+        final var result = new ValuesRuleResult<String>();
+        result.setType("values");
+        result.setExpectedValues(expected);
+        result.setActualValues(actual);
+
+        expected.clear();
+        actual.clear();
+        result.getExpectedValues().clear();
+        result.getActualValues().clear();
+
+        assertThat(result.getExpectedValues())
+                .isEqualTo(new LinkedHashSet<>(Arrays.asList("value", null)));
+        assertThat(result.getActualValues())
+                .containsExactly("value", "value", null);
+        assertThat(mapper.writeValueAsString(result))
+                .contains("\"expectedValues\":[\"value\",null]",
+                        "\"actualValues\":[\"value\",\"value\",null]");
+    }
+
+    @Test
+    void childCollectionIsIsolatedAndStillAllowsNullEntries() {
+        final var child = new RuleResult();
+        final var children = new ArrayList<>(Arrays.asList(child, null));
+        final var result = new MultiaryBooleanRuleResult();
+        result.setRules(children);
+
+        children.clear();
+        result.getRules().clear();
+
+        assertThat(result.getRules())
+                .containsExactly(child, null);
+    }
+
+    @Test
+    void nullCollectionsRemainAbsentFromJson() throws IOException {
+        final var result = new ValuesRuleResult<String>();
+        result.setActualValues(null);
+        result.setExpectedValues(null);
+        final var parent = new MultiaryBooleanRuleResult();
+        parent.setRules(null);
+
+        assertThat(mapper.writeValueAsString(result))
+                .doesNotContain("actualValues", "expectedValues");
+        assertThat(mapper.writeValueAsString(parent))
+                .doesNotContain("rules");
+    }
 
     ObjectMapper mapper = new ObjectMapper()
             .registerModule(new RuleResultModule());
