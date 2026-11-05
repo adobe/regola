@@ -160,6 +160,61 @@ class RuleDeserializerTest {
 
             assertThat(rule).isNull();
         }
+
+        @Test
+        @DisplayName("an unknown rule nested inside a known rule, leaving the stream in a consistent state")
+        void deserializeUnknownNestedRuleFromJson_fails() throws IOException {
+            String jsonRule = "{\"type\":\"NOT\",\"rule\":{\"type\":\"UNKNOWN\",\"key\":\"foo\"}}";
+
+            Rule rule = mapper.readValue(jsonRule, Rule.class);
+
+            assertThat(rule)
+                    .isInstanceOfSatisfying(com.adobe.abp.regola.rules.UnaryBooleanRule.class,
+                            not -> assertThat(not.getRule()).isNull());
+        }
+
+        @Test
+        @DisplayName("deeply nested rules without excessive slowdown or an OutOfMemoryError")
+        void deserializeDeeplyNestedRuleFromJson() throws IOException {
+            // Regression test for quadratic deserialization: each nesting level used to
+            // re-materialise the whole remaining subtree, making total work quadratic in depth.
+            // 900 levels stays under Jackson's default max nesting depth (1000) but was already
+            // enough to be extremely slow (or OOM under a constrained heap) with the old
+            // implementation.
+            int depth = 900;
+            StringBuilder json = new StringBuilder();
+            for (int i = 0; i < depth; i++) {
+                json.append("{\"type\":\"NOT\",\"rule\":");
+            }
+            json.append("{\"type\":\"EXISTS\",\"key\":\"foo\"}");
+            json.append("}".repeat(depth));
+
+            long start = System.nanoTime();
+            Rule rule = mapper.readValue(json.toString(), Rule.class);
+            long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+            assertThat(rule).isNotNull();
+            assertThat(elapsedMs)
+                    .describedAs("deserializing %d nested rules took %dms; " +
+                            "quadratic deserialization would be far slower at this depth", depth, elapsedMs)
+                    .isLessThan(2_000);
+        }
+
+        @Test
+        @DisplayName("an oversized rule nesting, rejecting it instead of risking an OutOfMemoryError")
+        void deserializeOversizedRuleNestingFromJson_fails() {
+            int depth = 1_500;
+            StringBuilder json = new StringBuilder();
+            for (int i = 0; i < depth; i++) {
+                json.append("{\"type\":\"NOT\",\"rule\":");
+            }
+            json.append("{\"type\":\"EXISTS\",\"key\":\"foo\"}");
+            json.append("}".repeat(depth));
+
+            assertThatExceptionOfType(com.fasterxml.jackson.databind.JsonMappingException.class)
+                    .isThrownBy(() -> mapper.readValue(json.toString(), Rule.class))
+                    .withMessageContaining("Document nesting depth");
+        }
     }
 
     @Nested
