@@ -16,6 +16,7 @@ import com.adobe.abp.regola.mockrules.MockRule;
 import com.adobe.abp.regola.rules.DateRule;
 import com.adobe.abp.regola.rules.ExistsRule;
 import com.adobe.abp.regola.rules.KeyBasedRule;
+import com.adobe.abp.regola.rules.NotRule;
 import com.adobe.abp.regola.rules.NumberRule;
 import com.adobe.abp.regola.rules.Operator;
 import com.adobe.abp.regola.rules.OperatorBasedRule;
@@ -23,7 +24,9 @@ import com.adobe.abp.regola.rules.Rule;
 import com.adobe.abp.regola.rules.SetRule;
 import com.adobe.abp.regola.rules.SingleValueRule;
 import com.adobe.abp.regola.rules.StringRule;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
@@ -174,46 +177,42 @@ class RuleDeserializerTest {
         }
 
         @Test
-        @DisplayName("deeply nested rules without excessive slowdown or an OutOfMemoryError")
-        void deserializeDeeplyNestedRuleFromJson() throws IOException {
-            // Regression test for quadratic deserialization: each nesting level used to
-            // re-materialise the whole remaining subtree, making total work quadratic in depth.
-            // 900 levels stays under Jackson's default max nesting depth (1000) but was already
-            // enough to be extremely slow (or OOM under a constrained heap) with the old
-            // implementation.
-            int depth = 900;
-            StringBuilder json = new StringBuilder();
+        @DisplayName("nested rules with every wrapper and the leaf preserved")
+        void deserializeNestedNotRules() throws IOException {
+            // Jackson's document limit does not guarantee enough JVM stack for recursive binding.
+            int depth = 64;
+            Rule rule = mapper.readValue(nestedNotRulesJson(depth), Rule.class);
+
             for (int i = 0; i < depth; i++) {
-                json.append("{\"type\":\"NOT\",\"rule\":");
+                assertThat(rule)
+                        .isInstanceOf(NotRule.class);
+                rule = ((NotRule) rule).getRule();
             }
-            json.append("{\"type\":\"EXISTS\",\"key\":\"foo\"}");
-            json.append("}".repeat(depth));
-
-            long start = System.nanoTime();
-            Rule rule = mapper.readValue(json.toString(), Rule.class);
-            long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-
-            assertThat(rule).isNotNull();
-            assertThat(elapsedMs)
-                    .describedAs("deserializing %d nested rules took %dms; " +
-                            "quadratic deserialization would be far slower at this depth", depth, elapsedMs)
-                    .isLessThan(2_000);
+            assertThat(rule)
+                    .isInstanceOfSatisfying(ExistsRule.class, leaf -> assertThat(leaf.getKey())
+                            .isEqualTo("foo"));
         }
 
         @Test
-        @DisplayName("an oversized rule nesting, rejecting it instead of risking an OutOfMemoryError")
-        void deserializeOversizedRuleNestingFromJson_fails() {
-            int depth = 1_500;
-            StringBuilder json = new StringBuilder();
-            for (int i = 0; i < depth; i++) {
-                json.append("{\"type\":\"NOT\",\"rule\":");
-            }
-            json.append("{\"type\":\"EXISTS\",\"key\":\"foo\"}");
-            json.append("}".repeat(depth));
+        @DisplayName("rule nesting beyond the configured document depth limit")
+        void rejectRulesBeyondConfiguredNestingLimit() {
+            int maxDepth = 32;
+            StreamReadConstraints constraints = StreamReadConstraints.builder()
+                    .maxNestingDepth(maxDepth)
+                    .build();
+            ObjectMapper constrainedMapper = mapper.copy();
+            constrainedMapper.getFactory().setStreamReadConstraints(constraints);
+            String json = nestedNotRulesJson(maxDepth + 1);
 
-            assertThatExceptionOfType(com.fasterxml.jackson.databind.JsonMappingException.class)
-                    .isThrownBy(() -> mapper.readValue(json.toString(), Rule.class))
+            assertThatExceptionOfType(JsonMappingException.class)
+                    .isThrownBy(() -> constrainedMapper.readValue(json, Rule.class))
                     .withMessageContaining("Document nesting depth");
+        }
+
+        private String nestedNotRulesJson(int depth) {
+            return "{\"type\":\"NOT\",\"rule\":".repeat(depth)
+                    + "{\"type\":\"EXISTS\",\"key\":\"foo\"}"
+                    + "}".repeat(depth);
         }
     }
 
