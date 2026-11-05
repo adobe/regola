@@ -12,6 +12,7 @@
 package com.adobe.abp.regola.json;
 
 import com.adobe.abp.regola.results.MultiaryBooleanRuleResult;
+import com.adobe.abp.regola.results.Result;
 import com.adobe.abp.regola.results.RuleResult;
 import com.adobe.abp.regola.results.UnaryBooleanRuleResult;
 import com.adobe.abp.regola.results.ValuesRuleResult;
@@ -46,7 +47,26 @@ public class RuleResultDeserializer extends StdDeserializer<RuleResult> {
             return mapper.treeToValue(root, ValuesRuleResult.class);
         }
 
-        // If none works, attempt to deserialise to the base result class.
-        return mapper.treeToValue(root, RuleResult.class);
+        // None of the composite/leaf-with-key shapes match: this is either a base/constant result
+        // (e.g. ConstantRule's snapshot, which has no "rules"/"rule"/"key") or a malformed payload.
+        // We must NOT call mapper.treeToValue(root, RuleResult.class) here: RuleResult.class is the
+        // very type this deserializer is registered for, so that call would select this same
+        // deserializer again, recursing until a StackOverflowError (reproducible with "{}"). Map the
+        // base fields by hand instead, and reject shapes that don't even carry a "result".
+        if (!root.has("result")) {
+            return ctxt.reportInputMismatch(RuleResult.class,
+                    "Cannot deserialize RuleResult: expected one of 'rules', 'rule', 'key', or a base " +
+                            "result shape with a 'result' field, but found none. Node: %s", root);
+        }
+
+        return RuleResult.baseBuilder().with(r -> {
+            r.result = mapper.convertValue(root.get("result"), Result.class);
+            r.type = root.path("type").asText(null);
+            r.description = root.path("description").asText(null);
+            r.message = root.path("message").asText(null);
+            r.ignored = root.path("ignored").asBoolean(false);
+            r.skipped = root.path("skipped").asBoolean(false);
+            r.cancelled = root.path("cancelled").asBoolean(false);
+        }).build();
     }
 }

@@ -20,6 +20,7 @@ import com.adobe.abp.regola.results.ValuesRuleResult;
 import com.adobe.abp.regola.rules.Operator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 public class RuleResultSerializationTest {
 
@@ -169,5 +171,36 @@ public class RuleResultSerializationTest {
         expectedRule.setCause(cause);
 
         assertThat(ruleResult).isEqualTo(expectedRule);
+    }
+
+    @Test
+    void deserializeBaseConstantRuleResultWithoutRecursing() throws IOException {
+        // No "rules", "rule" or "key": this is the shape a ConstantRule snapshot produces.
+        // Previously, this fell through to mapper.treeToValue(root, RuleResult.class), which
+        // re-selected this same deserializer and recursed until a StackOverflowError.
+        final var result = mapper.readValue(
+                "{\"type\":\"CONSTANT\",\"result\":\"VALID\",\"ignored\":true}", RuleResult.class);
+
+        assertThat(result.getResult()).isEqualTo(Result.VALID);
+        assertThat(result.getType()).isEqualTo("CONSTANT");
+        assertThat(result.isIgnored()).isTrue();
+        assertThat(result.isSkipped()).isFalse();
+        assertThat(result.isCancelled()).isFalse();
+    }
+
+    @Test
+    void rejectEmptyObjectInsteadOfRecursing() {
+        // "{}" matches none of "rules"/"rule"/"key"/"result": it must be rejected explicitly,
+        // not fall through to the same infinite-recursion path as above.
+        assertThatExceptionOfType(MismatchedInputException.class)
+                .isThrownBy(() -> mapper.readValue("{}", RuleResult.class))
+                .withMessageContaining("RuleResult");
+    }
+
+    @Test
+    void rejectMalformedShapeWithNeitherDispatchFieldNorResult() {
+        assertThatExceptionOfType(MismatchedInputException.class)
+                .isThrownBy(() -> mapper.readValue("{\"foo\":\"bar\"}", RuleResult.class))
+                .withMessageContaining("RuleResult");
     }
 }
